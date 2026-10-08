@@ -1,0 +1,10 @@
+# Clavier
+
+A typing piano that runs in your browser. Two rows of your computer keyboard map to two overlapping piano octaves, and you can hold several keys at once to play chords.
+
+- **Play:** open `index.html` and click **Start playing**
+- **Lower row:** `Z X C V B N M , . /` (white keys) + `S D G H J L ;` (sharps)
+- **Upper row:** `Q W E R T Y U I O P` (white keys) + `2 3 5 6 7 9 0` (sharps)
+- **Controls:** waveform, volume, octave shift, sustain (or hold Space)
+- **Song sheets:** built-in songs show the next key to press, with demo playback and adjustable BPM
+- **MIDI import:** load a `.mid` file and play along

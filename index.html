@@ -1,0 +1,1169 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Clavier</title>
+<style>
+  /* Layout: fixed header with controls, full-bleed piano docked to the bottom,
+     key legend printed directly on each keycap so a fast typist can see the map. */
+  :root{
+    --bg:#17140f;
+    --panel:#211c15;
+    --ivory:#f6f1e4;
+    --ivory-shadow:#c9c0a8;
+    --ebony:#1c160f;
+    --ebony-top:#332818;
+    --brass:#c9a24b;
+    --brass-dim:#8a6f38;
+    --ink:#e9e2d0;
+    --ink-dim:#a89d85;
+    --font-display:'Fraunces', Georgia, 'Times New Roman', serif;
+    --font-mono:'JetBrains Mono', 'Courier New', monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#ece6d8; --panel:#ded5c0; --ink:#241f16; --ink-dim:#5c5340;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#ece6d8; --panel:#ded5c0; --ink:#241f16; --ink-dim:#5c5340;
+    color-scheme: light;
+  }
+
+  *{ box-sizing:border-box; }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-mono);
+    min-height:100%;
+    display:flex;
+    flex-direction:column;
+    overflow-x:hidden;
+  }
+  ::selection{ background:var(--brass); color:#1c160f; }
+
+  header{
+    padding:28px 20px 10px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:18px;
+    align-items:flex-end;
+    justify-content:space-between;
+  }
+  .title-block h1{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:clamp(28px,5vw,42px);
+    margin:0;
+    letter-spacing:0.5px;
+    text-wrap:balance;
+    color:var(--ink);
+  }
+  .title-block p{
+    margin:4px 0 0;
+    color:var(--ink-dim);
+    font-size:13px;
+    max-width:60ch;
+  }
+
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    align-items:center;
+    background:var(--panel);
+    border:1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+    border-radius:10px;
+    padding:12px 16px;
+  }
+  .control{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    font-size:10px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+  }
+  select, input[type=range]{
+    accent-color:var(--brass);
+    font-family:var(--font-mono);
+  }
+  select{
+    background:var(--bg);
+    color:var(--ink);
+    border:1px solid var(--brass-dim);
+    border-radius:6px;
+    padding:5px 8px;
+    font-size:13px;
+  }
+  .octave-btns{ display:flex; gap:6px; align-items:center; }
+  .octave-btns button{
+    width:28px; height:28px;
+    border-radius:6px;
+    border:1px solid var(--brass-dim);
+    background:var(--bg);
+    color:var(--brass);
+    font-family:var(--font-mono);
+    font-size:15px;
+    cursor:pointer;
+  }
+  .octave-btns button:active{ background:var(--brass); color:#1c160f; }
+  .octave-val{ font-size:13px; color:var(--ink); min-width:1.5ch; text-align:center; }
+
+  label.toggle{
+    display:flex; align-items:center; gap:6px;
+    font-size:11px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--ink-dim); cursor:pointer;
+  }
+  label.toggle input{ accent-color:var(--brass); }
+
+  main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    gap:14px;
+    padding:0 0 calc(18px + env(safe-area-inset-bottom,0px));
+    min-height:0;
+  }
+
+  .now-playing{
+    min-height:28px;
+    padding:0 20px;
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    align-items:center;
+    font-size:12px;
+    color:var(--brass);
+    letter-spacing:0.04em;
+  }
+  .now-playing .pill{
+    border:1px solid var(--brass-dim);
+    border-radius:999px;
+    padding:2px 10px;
+    font-family:var(--font-display);
+    font-style:italic;
+  }
+  .now-playing .hint{ color:var(--ink-dim); font-style:italic; font-family:var(--font-display); }
+
+  .sheet{
+    margin:0 20px;
+    border:1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+    border-radius:10px;
+    background:var(--panel);
+    padding:12px 14px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .sheet-head{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .sheet-head .left{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .sheet-head select{ font-size:13px; }
+  .sheet-btn{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    background:transparent;
+    color:var(--brass);
+    border:1px solid var(--brass-dim);
+    border-radius:6px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .sheet-btn:active{ background:var(--brass); color:#1c160f; }
+  .sheet-btn:disabled{ opacity:0.4; cursor:default; }
+  .sheet-status{
+    font-size:11px;
+    color:var(--ink-dim);
+    letter-spacing:0.04em;
+    white-space:nowrap;
+  }
+  .sheet-status.done{ color:var(--brass); }
+
+  .staff-wrap{ display:flex; }
+  .staff-wrap.empty{ display:none; }
+
+  .keystrokes{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    width:100%;
+  }
+
+  .press-now{
+    flex:0 0 auto;
+    width:76px;
+    height:76px;
+    border-radius:12px;
+    background:linear-gradient(to bottom, #f6f1e4, #d8cfb6);
+    border:1px solid #93896f;
+    border-bottom-width:4px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:var(--font-mono);
+    font-weight:700;
+    font-size:34px;
+    color:#2a2110;
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--brass) 55%, transparent);
+  }
+  .press-now.done{
+    background:linear-gradient(to bottom, var(--brass), #a9823a);
+    box-shadow:none;
+  }
+  .press-now.miss{ box-shadow:0 0 0 3px #c0564a; }
+
+  .upcoming-row{
+    flex:1 1 auto;
+    min-width:0;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    display:flex;
+    gap:8px;
+    align-items:center;
+    padding:4px 2px;
+  }
+  .key-chip{
+    flex:0 0 auto;
+    width:34px;
+    height:34px;
+    border-radius:7px;
+    background:var(--bg);
+    border:1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+    color:var(--ink-dim);
+    font-family:var(--font-mono);
+    font-weight:600;
+    font-size:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:0.6;
+  }
+  .key-chip.played{ opacity:0.25; text-decoration:line-through; }
+
+  .played-trail{
+    flex:0 0 auto;
+    display:flex;
+    gap:4px;
+    max-width:110px;
+    overflow:hidden;
+    direction:rtl;
+  }
+  .played-trail span{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--ink-dim);
+    opacity:0.4;
+  }
+
+  .track-picker{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    align-items:center;
+    font-size:12px;
+    color:var(--ink-dim);
+    background:color-mix(in srgb, var(--bg) 70%, transparent);
+    border-radius:8px;
+    padding:8px 10px;
+  }
+  .track-picker select{ font-size:12px; }
+
+  .wkey.expected{ box-shadow:inset 0 0 0 3px var(--brass); }
+  .bkey.expected{ box-shadow:inset 0 0 0 2px var(--brass); }
+
+  .piano-wrap{
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding:0 12px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .piano{
+    position:relative;
+    height:168px;
+    margin:0 auto;
+  }
+  .wkey, .bkey{
+    position:absolute;
+    top:0;
+    border-radius:0 0 6px 6px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    padding-bottom:10px;
+    user-select:none;
+    transition:background 60ms ease, transform 60ms ease;
+    cursor:pointer;
+  }
+  .wkey{
+    height:100%;
+    background:linear-gradient(to bottom, var(--ivory), var(--ivory-shadow));
+    border:1px solid #93896f;
+    color:#3a3222;
+    z-index:1;
+  }
+  .wkey.active{
+    background:linear-gradient(to bottom, var(--brass), #a9823a);
+    transform:translateY(2px);
+  }
+  .bkey{
+    height:62%;
+    background:linear-gradient(to bottom, var(--ebony-top), var(--ebony));
+    border:1px solid #000;
+    color:var(--brass);
+    z-index:2;
+    border-radius:0 0 4px 4px;
+  }
+  .bkey.active{
+    background:linear-gradient(to bottom, var(--brass), #6f5a2c);
+    color:#1c160f;
+    transform:translateY(2px);
+  }
+  .keycap{
+    font-size:11px;
+    line-height:1.3;
+    text-align:center;
+    font-family:var(--font-mono);
+    white-space:pre;
+  }
+  .wkey .keycap{ color:#55492f; }
+  .wkey.active .keycap{ color:#2a2110; }
+  .note-label{
+    position:absolute;
+    bottom:4px;
+    left:0; right:0;
+    text-align:center;
+    font-size:8px;
+    letter-spacing:0.05em;
+    color:#8c8166;
+    font-family:var(--font-mono);
+  }
+  .wkey.active .note-label{ color:#2a2110; }
+
+  .start-overlay{
+    position:fixed;
+    inset:0;
+    background:color-mix(in srgb, var(--bg) 92%, transparent);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    z-index:10;
+    padding:20px;
+  }
+  .start-overlay.hidden{ display:none; }
+  .start-card{
+    border:1px solid var(--brass-dim);
+    border-radius:14px;
+    padding:28px 32px;
+    background:var(--panel);
+    max-width:360px;
+  }
+  .start-card h2{
+    font-family:var(--font-display);
+    font-size:22px;
+    margin:0 0 8px;
+    color:var(--ink);
+  }
+  .start-card p{
+    margin:0 0 18px;
+    font-size:13px;
+    color:var(--ink-dim);
+    line-height:1.5;
+  }
+  .start-card button{
+    font-family:var(--font-mono);
+    font-size:13px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    background:var(--brass);
+    color:#1c160f;
+    border:none;
+    border-radius:8px;
+    padding:10px 22px;
+    cursor:pointer;
+  }
+
+  @media (max-width:560px){
+    header{ padding:20px 14px 8px; }
+    .now-playing{ padding:0 14px; }
+    .piano-wrap{ padding:0 8px; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<header>
+  <div class="title-block">
+    <h1>Clavier</h1>
+    <p>Type to play. Two rows of your keyboard map to two overlapping piano octaves — hold several keys at once, just like real chords.</p>
+  </div>
+  <div class="controls">
+    <div class="control">
+      Waveform
+      <select id="wave">
+        <option value="triangle" selected>Warm (triangle)</option>
+        <option value="sine">Soft (sine)</option>
+        <option value="sawtooth">Bright (saw)</option>
+        <option value="square">Reed (square)</option>
+      </select>
+    </div>
+    <div class="control">
+      Volume
+      <input id="volume" type="range" min="0" max="1" step="0.01" value="0.6">
+    </div>
+    <div class="control">
+      Octave
+      <div class="octave-btns">
+        <button id="octDown" aria-label="Octave down">−</button>
+        <span class="octave-val" id="octVal">0</span>
+        <button id="octUp" aria-label="Octave up">+</button>
+      </div>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" id="sustain">
+      Sustain (or hold Space)
+    </label>
+  </div>
+</header>
+
+<main>
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="left">
+        <select id="songSelect">
+          <option value="">Free play — no sheet</option>
+          <optgroup label="Classical">
+            <option value="ode">Ode to Joy — Beethoven</option>
+            <option value="furelise">Für Elise — Beethoven</option>
+          </optgroup>
+          <optgroup label="Hymn &amp; Gospel">
+            <option value="grace">Amazing Grace</option>
+            <option value="saints">When the Saints Go Marching In</option>
+          </optgroup>
+          <optgroup label="Holiday &amp; Celebration">
+            <option value="jingle">Jingle Bells</option>
+            <option value="birthday">Happy Birthday to You</option>
+          </optgroup>
+          <optgroup label="Patriotic">
+            <option value="yankee">Yankee Doodle</option>
+          </optgroup>
+          <optgroup label="Nursery &amp; Folk">
+            <option value="hotcross">Hot Cross Buns</option>
+            <option value="twinkle">Twinkle Twinkle Little Star</option>
+            <option value="mary">Mary Had a Little Lamb</option>
+            <option value="rowboat">Row, Row, Row Your Boat</option>
+            <option value="weasel">Pop Goes the Weasel</option>
+          </optgroup>
+          <optgroup label="Imported" id="importedGroup" hidden></optgroup>
+        </select>
+        <button class="sheet-btn" id="demoBtn" disabled>Play demo</button>
+        <button class="sheet-btn" id="restartBtn" disabled>Restart</button>
+        <div class="control" style="flex-direction:row; align-items:center; gap:6px;">
+          <span style="text-transform:none; letter-spacing:0;">BPM</span>
+          <input id="bpm" type="range" min="60" max="160" value="100" style="width:80px;">
+        </div>
+        <label class="sheet-btn" for="midiFile" style="cursor:pointer;">Import MIDI</label>
+        <input id="midiFile" type="file" accept=".mid,.midi" style="display:none;">
+      </div>
+      <div class="sheet-status" id="sheetStatus">Pick a song to get a keystroke sheet</div>
+    </div>
+    <div class="track-picker" id="trackPicker" hidden></div>
+    <div class="staff-wrap empty" id="staffWrap">
+      <div class="keystrokes">
+        <div class="press-now" id="pressNow">Z</div>
+        <div class="upcoming-row" id="upcomingRow"></div>
+      </div>
+    </div>
+  </div>
+  <div class="now-playing" id="nowPlaying">
+    <span class="hint">Nothing sounding yet — start typing</span>
+  </div>
+  <div class="piano-wrap">
+    <div class="piano" id="piano"></div>
+  </div>
+</main>
+
+<div class="start-overlay" id="startOverlay">
+  <div class="start-card">
+    <h2>Wake the strings</h2>
+    <p>Browsers hold audio silent until you interact once. Click start, then play the keyboard mapping shown on the keys below.</p>
+    <button id="startBtn">Start playing</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- Note math -------------------------------------------------------
+  var NOTE_INDEX = {C:0,"C#":1,D:2,"D#":3,E:4,F:5,"F#":6,G:7,"G#":8,A:9,"A#":10,B:11};
+  function noteToMidi(name){
+    var m = name.match(/^([A-G]#?)(\d)$/);
+    return (parseInt(m[2],10)+1)*12 + NOTE_INDEX[m[1]];
+  }
+  function midiToFreq(midi){
+    return 440 * Math.pow(2, (midi-69)/12);
+  }
+  function isWhite(midi){
+    var pc = ((midi%12)+12)%12;
+    return [0,2,4,5,7,9,11].indexOf(pc) !== -1;
+  }
+  function pitchClassName(midi){
+    var names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+    var pc = ((midi%12)+12)%12;
+    return names[pc] + (Math.floor(midi/12)-1);
+  }
+
+  // ---- Keyboard mapping (two overlapping rows, typing-piano convention) --
+  // Lower row = ZXCVBNM,./  (white)  +  SDGHJL; (black)
+  // Upper row = QWERTYUIOP  (white)  +  235679 0 (black)
+  var BASE_MAP = {
+    z:"C4", s:"C#4", x:"D4", d:"D#4", c:"E4", v:"F4", g:"F#4", b:"G4", h:"G#4",
+    n:"A4", j:"A#4", m:"B4", ",":"C5", l:"C#5", ".":"D5", ";":"D#5", "/":"E5",
+    q:"C5", "2":"C#5", w:"D5", "3":"D#5", e:"E5", r:"F5", "5":"F#5", t:"G5", "6":"G#5",
+    y:"A5", "7":"A#5", u:"B5", i:"C6", "9":"C#6", o:"D6", "0":"D#6", p:"E6"
+  };
+
+  var octaveShift = 0; // in whole octaves, applied to every mapped note
+
+  function keyToMidi(key){
+    var note = BASE_MAP[key];
+    if(!note) return null;
+    return noteToMidi(note) + octaveShift*12;
+  }
+
+  // ---- Audio engine ------------------------------------------------------
+  var ctx = null;
+  var masterGain = null;
+  var voices = {}; // physical key -> {osc, osc2, gain}
+
+  function ensureAudio(){
+    if(ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = parseFloat(document.getElementById("volume").value);
+    masterGain.connect(ctx.destination);
+  }
+
+  function noteOn(key){
+    var midi = keyToMidi(key);
+    if(midi === null) return;
+    if(voices[key]) return; // already sounding (ignore OS autorepeat)
+    ensureAudio();
+    if(ctx.state === "suspended") ctx.resume();
+
+    var freq = midiToFreq(midi);
+    var wave = document.getElementById("wave").value;
+    var now = ctx.currentTime;
+
+    var osc = ctx.createOscillator();
+    osc.type = wave;
+    osc.frequency.value = freq;
+
+    var osc2 = ctx.createOscillator();
+    osc2.type = "sine";
+    osc2.frequency.value = freq * 2.003; // slight detune for body, like a piano's doubled string
+    var osc2Gain = ctx.createGain();
+    osc2Gain.gain.value = 0.18;
+
+    var gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.9, now + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.35, now + 0.35);
+
+    osc.connect(gain);
+    osc2.connect(osc2Gain);
+    osc2Gain.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start(now);
+    osc2.start(now);
+
+    voices[key] = {osc:osc, osc2:osc2, gain:gain, midi:midi};
+    updateKeyVisual(midi, true);
+    updateNowPlaying();
+  }
+
+  function noteOff(key){
+    var v = voices[key];
+    if(!v) return;
+    if(sustainActive()) { v.held = false; return; }
+    releaseVoice(key, v);
+  }
+
+  function releaseVoice(key, v){
+    var now = ctx.currentTime;
+    v.gain.gain.cancelScheduledValues(now);
+    v.gain.gain.setValueAtTime(v.gain.gain.value, now);
+    v.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+    v.osc.stop(now + 0.2);
+    v.osc2.stop(now + 0.2);
+    updateKeyVisual(v.midi, false);
+    delete voices[key];
+    updateNowPlaying();
+  }
+
+  function sustainActive(){
+    return document.getElementById("sustain").checked || spaceHeld;
+  }
+
+  var spaceHeld = false;
+  function releaseAllHeldBySustain(){
+    Object.keys(voices).forEach(function(key){
+      if(!pressedKeys[key]) releaseVoice(key, voices[key]);
+    });
+  }
+
+  // ---- Visual piano -------------------------------------------------------
+  var MIDI_LOW = noteToMidi("C4");
+  var MIDI_HIGH = noteToMidi("E6");
+  var WHITE_W = 42, WHITE_H = 168, BLACK_W = 26, BLACK_H = 104;
+
+  var keyEls = {}; // midi (at shift 0) -> element list (white/black)
+  var letterToEl = {}; // keyboard letter -> its piano element, for sheet highlighting
+  var reverseMap = {}; // base note name (no shift) -> [keyboard keys]
+  Object.keys(BASE_MAP).forEach(function(k){
+    var n = BASE_MAP[k];
+    (reverseMap[n] = reverseMap[n] || []).push(k);
+  });
+
+  function buildPiano(){
+    var piano = document.getElementById("piano");
+    piano.innerHTML = "";
+    var whiteIndex = 0;
+    var totalWhite = 0;
+    for(var m=MIDI_LOW; m<=MIDI_HIGH; m++){ if(isWhite(m)) totalWhite++; }
+    piano.style.width = (totalWhite*WHITE_W) + "px";
+
+    for(var midi=MIDI_LOW; midi<=MIDI_HIGH; midi++){
+      var noteName = pitchClassName(midi);
+      var keys = reverseMap[noteName] || [];
+      var label = keys.map(function(k){ return k===" " ? "space" : k; }).join("\n");
+      if(isWhite(midi)){
+        var el = document.createElement("div");
+        el.className = "wkey";
+        el.style.left = (whiteIndex*WHITE_W) + "px";
+        el.style.width = WHITE_W + "px";
+        el.dataset.midi = midi;
+        el.innerHTML = '<span class="keycap">'+(label||"")+'</span><span class="note-label">'+noteName+'</span>';
+        piano.appendChild(el);
+        keyEls[midi] = keyEls[midi] || [];
+        keyEls[midi].push(el);
+        keys.forEach(function(k){ letterToEl[k] = el; });
+        attachPointer(el, keys);
+        whiteIndex++;
+      } else {
+        var bl = document.createElement("div");
+        bl.className = "bkey";
+        bl.style.left = (whiteIndex*WHITE_W - BLACK_W/2) + "px";
+        bl.style.width = BLACK_W + "px";
+        bl.style.height = BLACK_H + "px";
+        bl.dataset.midi = midi;
+        bl.innerHTML = '<span class="keycap">'+(label||"")+'</span>';
+        piano.appendChild(bl);
+        keyEls[midi] = keyEls[midi] || [];
+        keyEls[midi].push(bl);
+        keys.forEach(function(k){ letterToEl[k] = bl; });
+        attachPointer(bl, keys);
+      }
+    }
+  }
+
+  function attachPointer(el, keys){
+    // Mouse/touch play too, using the first mapped key as the voice id.
+    if(!keys.length) return;
+    var id = "ptr:"+keys[0];
+    el.addEventListener("pointerdown", function(e){
+      e.preventDefault();
+      pressedKeys[id] = true;
+      noteOn(id === "ptr:"+keys[0] ? keys[0] : keys[0]);
+      // use a synthetic key name so noteOn/Off can share voice bookkeeping
+    });
+    el.addEventListener("pointerup", function(){ pressedKeys[id]=false; noteOff(keys[0]); });
+    el.addEventListener("pointerleave", function(){ if(pressedKeys[id]){ pressedKeys[id]=false; noteOff(keys[0]); } });
+  }
+
+  function updateKeyVisual(midiAtShift, isOn){
+    var baseMidi = midiAtShift - octaveShift*12;
+    var els = keyEls[baseMidi];
+    if(!els) return;
+    els.forEach(function(el){ el.classList.toggle("active", isOn); });
+  }
+
+  // ---- Now playing strip ---------------------------------------------------
+  function updateNowPlaying(){
+    var strip = document.getElementById("nowPlaying");
+    var names = Object.keys(voices).map(function(k){ return pitchClassName(voices[k].midi); });
+    if(!names.length){
+      strip.innerHTML = '<span class="hint">Nothing sounding yet — start typing</span>';
+      return;
+    }
+    strip.innerHTML = names.map(function(n){ return '<span class="pill">'+n+'</span>'; }).join("");
+  }
+
+  // ---- Song sheet (keystroke-aligned practice strip) -----------------------
+  // All songs use only the lower-row letters (z x c v b n m ,), one octave,
+  // so they work regardless of the current octave shift.
+  var SONGS = {
+    hotcross: [
+      {k:"c",b:1},{k:"x",b:1},{k:"z",b:2},
+      {k:"c",b:1},{k:"x",b:1},{k:"z",b:2},
+      {k:"z",b:0.5},{k:"z",b:0.5},{k:"z",b:0.5},{k:"z",b:0.5},
+      {k:"x",b:0.5},{k:"x",b:0.5},{k:"x",b:0.5},{k:"x",b:0.5},
+      {k:"c",b:1},{k:"x",b:1},{k:"z",b:2}
+    ],
+    twinkle: [
+      {k:"z",b:1},{k:"z",b:1},{k:"b",b:1},{k:"b",b:1},
+      {k:"n",b:1},{k:"n",b:1},{k:"b",b:2},
+      {k:"v",b:1},{k:"v",b:1},{k:"c",b:1},{k:"c",b:1},
+      {k:"x",b:1},{k:"x",b:1},{k:"z",b:2}
+    ],
+    mary: [
+      {k:"c",b:1},{k:"x",b:1},{k:"z",b:1},{k:"x",b:1},
+      {k:"c",b:1},{k:"c",b:1},{k:"c",b:2},
+      {k:"x",b:1},{k:"x",b:1},{k:"x",b:2},
+      {k:"c",b:1},{k:"b",b:1},{k:"b",b:2},
+      {k:"c",b:1},{k:"x",b:1},{k:"z",b:1},{k:"x",b:1},
+      {k:"c",b:1},{k:"c",b:1},{k:"c",b:1},{k:"c",b:1},
+      {k:"x",b:1},{k:"x",b:1},{k:"c",b:1},{k:"x",b:1},{k:"z",b:4}
+    ],
+    ode: [
+      {k:"c",b:1},{k:"c",b:1},{k:"v",b:1},{k:"b",b:1},
+      {k:"b",b:1},{k:"v",b:1},{k:"c",b:1},{k:"x",b:1},
+      {k:"z",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:1},
+      {k:"c",b:1.5},{k:"x",b:0.5},{k:"x",b:2}
+    ],
+    rowboat: [
+      {k:"z",b:1},{k:"z",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:2},
+      {k:"c",b:1},{k:"x",b:1},{k:"c",b:1},{k:"v",b:1},{k:"b",b:2}
+    ],
+    weasel: [
+      {k:"z",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:1},
+      {k:"x",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:1},
+      {k:"x",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:0.5},{k:"v",b:0.5},
+      {k:"b",b:2}
+    ],
+    yankee: [
+      {k:"z",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:1},{k:"z",b:1},{k:"c",b:1},{k:"x",b:2},
+      {k:"x",b:1},{k:"c",b:1},{k:"v",b:1},{k:"c",b:1},{k:"x",b:1},{k:"z",b:2}
+    ],
+    jingle: [
+      {k:"c",b:1},{k:"c",b:1},{k:"c",b:2},
+      {k:"c",b:1},{k:"c",b:1},{k:"c",b:2},
+      {k:"c",b:1},{k:"b",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:2}
+    ],
+    grace: [
+      {k:"b",b:1},{k:"z",b:1},{k:"z",b:1},{k:"c",b:1},
+      {k:"x",b:1},{k:"z",b:1},{k:"n",b:1},{k:"b",b:3}
+    ],
+    saints: [
+      {k:"z",b:1},{k:"c",b:1},{k:"v",b:1},{k:"b",b:2},
+      {k:"z",b:1},{k:"c",b:1},{k:"v",b:1},{k:"b",b:2}
+    ],
+    birthday: [
+      {k:"z",b:0.75},{k:"z",b:0.25},{k:"x",b:1},{k:"z",b:1},{k:"v",b:1},{k:"c",b:2}
+    ],
+    furelise: [
+      {k:"/",b:1},{k:";",b:1},{k:"/",b:1},{k:";",b:1},{k:"/",b:1},
+      {k:"m",b:1},{k:".",b:1},{k:",",b:1},{k:"n",b:2}
+    ]
+  };
+  var customSongCount = 0;
+
+  // ---- MIDI import --------------------------------------------------------
+  // Reads a .mid file the user already has the rights to (their own, bought,
+  // or royalty-free) and converts its melody into our keystroke format —
+  // entirely client-side, no song data stored or shipped with this page.
+  function parseMidi(buffer){
+    var bytes = new Uint8Array(buffer);
+    var pos = 0;
+    function u32(){ var v=(bytes[pos]<<24)|(bytes[pos+1]<<16)|(bytes[pos+2]<<8)|bytes[pos+3]; pos+=4; return v>>>0; }
+    function u16(){ var v=(bytes[pos]<<8)|bytes[pos+1]; pos+=2; return v; }
+    function u8(){ return bytes[pos++]; }
+    function str(n){ var s=""; for(var i=0;i<n;i++) s+=String.fromCharCode(bytes[pos+i]); pos+=n; return s; }
+    function vlq(){
+      var value=0, b;
+      do{ b=bytes[pos++]; value=(value<<7)|(b&0x7f); }while(b & 0x80);
+      return value;
+    }
+    if(str(4) !== "MThd") throw new Error("Not a MIDI file");
+    var headerLen = u32();
+    var format = u16();
+    var ntracks = u16();
+    var division = u16();
+    pos += (headerLen-6);
+    if(division & 0x8000) throw new Error("This MIDI file uses SMPTE timing, which isn't supported");
+    var ticksPerQuarter = division;
+
+    var tracks = [];
+    for(var t=0;t<ntracks;t++){
+      if(str(4) !== "MTrk") throw new Error("Malformed MIDI file");
+      var trackLen = u32();
+      var trackEnd = pos+trackLen;
+      var events = [];
+      var absTick = 0, runningStatus = null, trackName = null;
+      while(pos < trackEnd){
+        var delta = vlq();
+        absTick += delta;
+        var statusByte = bytes[pos];
+        var status;
+        if(statusByte >= 0x80){ status = statusByte; pos++; runningStatus = status; }
+        else status = runningStatus;
+        if(status === 0xFF){
+          var metaType = u8(); var len = vlq();
+          var data = bytes.slice(pos, pos+len); pos += len;
+          if(metaType === 0x51 && len === 3){
+            events.push({tick:absTick, type:"tempo", usPerQuarter:(data[0]<<16)|(data[1]<<8)|data[2]});
+          } else if(metaType === 0x03){
+            trackName = Array.prototype.map.call(data, function(c){return String.fromCharCode(c);}).join("");
+          }
+        } else if(status === 0xF0 || status === 0xF7){
+          pos += vlq();
+        } else if(status == null){
+          break; // malformed stream, stop reading this track
+        } else {
+          var hi = status & 0xF0;
+          if(hi === 0x90 || hi === 0x80){
+            var note = u8(), vel = u8();
+            events.push({tick:absTick, type:(hi===0x90 && vel>0)?"on":"off", note:note});
+          } else if(hi === 0xA0 || hi === 0xB0 || hi === 0xE0){
+            pos += 2;
+          } else if(hi === 0xC0 || hi === 0xD0){
+            pos += 1;
+          } else break;
+        }
+      }
+      pos = trackEnd;
+      tracks.push({name:trackName, events:events});
+    }
+    return {format:format, ticksPerQuarter:ticksPerQuarter, tracks:tracks};
+  }
+
+  var MIDI_PREFERRED_ORDER = ["z","s","x","d","c","v","g","b","h","n","j","m",",","l",".",";","/"];
+  function midiToLetter(midi){
+    while(midi < MIDI_LOW) midi += 12;
+    while(midi > MIDI_HIGH) midi -= 12;
+    var candidates = reverseMap[pitchClassName(midi)] || [];
+    for(var i=0;i<MIDI_PREFERRED_ORDER.length;i++){
+      if(candidates.indexOf(MIDI_PREFERRED_ORDER[i]) !== -1) return MIDI_PREFERRED_ORDER[i];
+    }
+    return candidates[0] || null;
+  }
+  function quantizeBeats(b){ return Math.max(Math.round(b*4)/4, 0.25); }
+
+  function trackToSong(trackEvents, ticksPerQuarter){
+    var sorted = trackEvents.filter(function(e){ return e.type==="on"||e.type==="off"; })
+                             .slice().sort(function(a,b){ return a.tick-b.tick; });
+    var byTick = [];
+    var i = 0;
+    while(i < sorted.length){
+      var tick = sorted[i].tick, group = [];
+      while(i < sorted.length && sorted[i].tick === tick){ group.push(sorted[i]); i++; }
+      byTick.push({tick:tick, events:group});
+    }
+    var held = {}, melody = [];
+    byTick.forEach(function(g){
+      g.events.forEach(function(e){
+        if(e.type==="on") held[e.note]=true; else delete held[e.note];
+      });
+      var notes = Object.keys(held).map(Number);
+      if(notes.length){
+        var top = Math.max.apply(null, notes);
+        var last = melody[melody.length-1];
+        if(!last || last.note !== top) melody.push({tick:g.tick, note:top});
+      } else {
+        melody.push({tick:g.tick, note:null});
+      }
+    });
+    var song = [];
+    for(var j=0;j<melody.length;j++){
+      if(melody[j].note === null) continue;
+      var startTick = melody[j].tick;
+      var endTick = (j+1<melody.length) ? melody[j+1].tick : startTick+ticksPerQuarter;
+      var beats = quantizeBeats((endTick-startTick)/ticksPerQuarter);
+      var letter = midiToLetter(melody[j].note);
+      if(letter) song.push({k:letter, b:beats});
+    }
+    return song;
+  }
+
+  function showTrackPicker(parsed, filename){
+    var candidates = parsed.tracks
+      .map(function(tr, idx){ return {idx:idx, name:tr.name, count:tr.events.filter(function(e){return e.type==="on";}).length}; })
+      .filter(function(c){ return c.count > 0; });
+
+    if(!candidates.length){
+      document.getElementById("sheetStatus").textContent = "No notes found in that MIDI file";
+      return;
+    }
+    if(candidates.length === 1){
+      importTrack(parsed, candidates[0].idx, filename);
+      return;
+    }
+    candidates.sort(function(a,b){ return b.count - a.count; });
+    var picker = document.getElementById("trackPicker");
+    picker.hidden = false;
+    picker.textContent = "";
+
+    var label = document.createElement("span");
+    label.textContent = "This file has " + candidates.length + " tracks with notes — pick the melody:";
+    picker.appendChild(label);
+
+    var select = document.createElement("select");
+    select.id = "trackChoice";
+    candidates.forEach(function(c){
+      var opt = document.createElement("option");
+      opt.value = String(c.idx);
+      opt.textContent = (c.name || ("Track "+(c.idx+1))) + " (" + c.count + " notes)"; // track name is untrusted file content — textContent only, never innerHTML
+      select.appendChild(opt);
+    });
+    picker.appendChild(select);
+
+    var useBtn = document.createElement("button");
+    useBtn.className = "sheet-btn";
+    useBtn.textContent = "Use this track";
+    useBtn.addEventListener("click", function(){
+      var idx = parseInt(select.value, 10);
+      picker.hidden = true;
+      picker.textContent = "";
+      importTrack(parsed, idx, filename);
+    });
+    picker.appendChild(useBtn);
+  }
+
+  function importTrack(parsed, trackIdx, filename){
+    var song = trackToSong(parsed.tracks[trackIdx].events, parsed.ticksPerQuarter);
+    if(!song.length){
+      document.getElementById("sheetStatus").textContent = "Couldn't find a playable melody in that track";
+      return;
+    }
+    customSongCount++;
+    var key = "custom" + customSongCount;
+    SONGS[key] = song;
+    var group = document.getElementById("importedGroup");
+    group.hidden = false;
+    var opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = filename + " (imported)";
+    group.appendChild(opt);
+    document.getElementById("songSelect").value = key;
+    stopDemo();
+    sheetState.song = key;
+    sheetState.cursor = 0;
+    document.getElementById("demoBtn").disabled = false;
+    document.getElementById("restartBtn").disabled = false;
+    renderSheet();
+  }
+
+  document.getElementById("midiFile").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    document.getElementById("sheetStatus").textContent = "Reading " + file.name + "…";
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var parsed = parseMidi(reader.result);
+        showTrackPicker(parsed, file.name.replace(/\.(mid|midi)$/i, ""));
+      } catch(err){
+        document.getElementById("sheetStatus").textContent = "Couldn't read that file: " + err.message;
+      }
+    };
+    reader.onerror = function(){
+      document.getElementById("sheetStatus").textContent = "Couldn't read that file";
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = ""; // allow re-importing the same filename later
+  });
+
+  var sheetState = { song:null, cursor:0, demoPlaying:false, demoTimer:null };
+
+  function renderSheet(){
+    var wrap = document.getElementById("staffWrap");
+    var pressNow = document.getElementById("pressNow");
+    var upcoming = document.getElementById("upcomingRow");
+    if(!sheetState.song){
+      wrap.classList.add("empty");
+      document.getElementById("sheetStatus").textContent = "Pick a song to get a keystroke sheet";
+      document.getElementById("sheetStatus").classList.remove("done");
+      clearExpected();
+      return;
+    }
+    wrap.classList.remove("empty");
+    var seq = SONGS[sheetState.song];
+    var done = sheetState.cursor >= seq.length;
+
+    pressNow.classList.toggle("done", done);
+    pressNow.textContent = done ? "✓" : seq[sheetState.cursor].k.toUpperCase();
+
+    upcoming.innerHTML = "";
+    // Show a short trail of already-typed keys, dimmed, then the keys still to come.
+    var trailStart = Math.max(0, sheetState.cursor-4);
+    for(var i=trailStart; i<sheetState.cursor; i++){
+      var played = document.createElement("div");
+      played.className = "key-chip played";
+      played.textContent = seq[i].k.toUpperCase();
+      upcoming.appendChild(played);
+    }
+    for(var j=sheetState.cursor+1; j<seq.length; j++){
+      var next = document.createElement("div");
+      next.className = "key-chip";
+      next.textContent = seq[j].k.toUpperCase();
+      upcoming.appendChild(next);
+    }
+
+    updateExpectedHighlight();
+    if(done){
+      document.getElementById("sheetStatus").textContent = "Nicely played — tune complete";
+      document.getElementById("sheetStatus").classList.add("done");
+    } else {
+      document.getElementById("sheetStatus").textContent = "Key " + (sheetState.cursor+1) + " of " + seq.length;
+      document.getElementById("sheetStatus").classList.remove("done");
+    }
+  }
+
+  function clearExpected(){
+    Object.keys(letterToEl).forEach(function(k){ letterToEl[k].classList.remove("expected"); });
+  }
+
+  function updateExpectedHighlight(){
+    clearExpected();
+    if(!sheetState.song) return;
+    var seq = SONGS[sheetState.song];
+    var note = seq[sheetState.cursor];
+    if(note && letterToEl[note.k]) letterToEl[note.k].classList.add("expected");
+  }
+
+  function flashMiss(){
+    var pressNow = document.getElementById("pressNow");
+    pressNow.classList.add("miss");
+    setTimeout(function(){ pressNow.classList.remove("miss"); }, 180);
+  }
+
+  function handlePracticeKey(key){
+    if(!sheetState.song || sheetState.demoPlaying) return;
+    var seq = SONGS[sheetState.song];
+    if(sheetState.cursor >= seq.length) return;
+    if(seq[sheetState.cursor].k === key){
+      sheetState.cursor++;
+      renderSheet();
+    } else {
+      flashMiss();
+    }
+  }
+
+  function stopDemo(){
+    var wasPlaying = sheetState.demoPlaying;
+    sheetState.demoPlaying = false;
+    if(sheetState.demoTimer) clearTimeout(sheetState.demoTimer);
+    document.getElementById("demoBtn").textContent = "Play demo";
+    if(wasPlaying && sheetState.song){
+      sheetState.cursor = 0;
+      renderSheet();
+    }
+  }
+
+  function playDemo(){
+    if(!sheetState.song) return;
+    if(sheetState.demoPlaying){ stopDemo(); return; }
+    ensureAudio();
+    if(ctx.state === "suspended") ctx.resume();
+    document.getElementById("startOverlay").classList.add("hidden");
+    sheetState.demoPlaying = true;
+    document.getElementById("demoBtn").textContent = "Stop demo";
+    var seq = SONGS[sheetState.song];
+    var bpm = parseFloat(document.getElementById("bpm").value);
+    var beatMs = 60000 / bpm;
+    var i = 0;
+    function step(){
+      if(!sheetState.demoPlaying || i >= seq.length){ stopDemo(); return; }
+      var note = seq[i];
+      noteOn(note.k);
+      sheetState.cursor = i;
+      renderSheet();
+      var holdMs = note.b * beatMs * 0.85;
+      setTimeout(function(){ noteOff(note.k); }, holdMs);
+      i++;
+      sheetState.demoTimer = setTimeout(step, note.b * beatMs);
+    }
+    sheetState.cursor = 0;
+    step();
+  }
+
+  document.getElementById("songSelect").addEventListener("change", function(e){
+    stopDemo();
+    sheetState.song = e.target.value || null;
+    sheetState.cursor = 0;
+    document.getElementById("demoBtn").disabled = !sheetState.song;
+    document.getElementById("restartBtn").disabled = !sheetState.song;
+    renderSheet();
+  });
+  document.getElementById("demoBtn").addEventListener("click", playDemo);
+  document.getElementById("restartBtn").addEventListener("click", function(){
+    sheetState.cursor = 0;
+    renderSheet();
+  });
+
+  // ---- Keyboard input --------------------------------------------------
+  var pressedKeys = {};
+
+  window.addEventListener("keydown", function(e){
+    if(e.repeat) return;
+    var key = e.key.toLowerCase();
+    if(key === " "){
+      e.preventDefault();
+      if(!spaceHeld){ spaceHeld = true; }
+      return;
+    }
+    if(!(key in BASE_MAP)) return;
+    e.preventDefault();
+    pressedKeys[key] = true;
+    noteOn(key);
+    handlePracticeKey(key);
+  });
+
+  window.addEventListener("keyup", function(e){
+    var key = e.key.toLowerCase();
+    if(key === " "){
+      spaceHeld = false;
+      releaseAllHeldBySustain();
+      return;
+    }
+    if(!(key in BASE_MAP)) return;
+    pressedKeys[key] = false;
+    noteOff(key);
+  });
+
+  document.getElementById("sustain").addEventListener("change", function(e){
+    if(!e.target.checked) releaseAllHeldBySustain();
+  });
+
+  document.getElementById("volume").addEventListener("input", function(e){
+    if(masterGain) masterGain.gain.value = parseFloat(e.target.value);
+  });
+
+  document.getElementById("octUp").addEventListener("click", function(){
+    if(octaveShift < 2){ octaveShift++; document.getElementById("octVal").textContent = octaveShift; }
+  });
+  document.getElementById("octDown").addEventListener("click", function(){
+    if(octaveShift > -2){ octaveShift--; document.getElementById("octVal").textContent = octaveShift; }
+  });
+
+  document.getElementById("startBtn").addEventListener("click", function(){
+    ensureAudio();
+    if(ctx.state === "suspended") ctx.resume();
+    document.getElementById("startOverlay").classList.add("hidden");
+  });
+
+  buildPiano();
+})();
+</script>
+
+</body></html>
