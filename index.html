@@ -187,7 +187,7 @@
   }
   .sheet-status.done{ color:var(--brass); }
 
-  .staff-wrap{ display:flex; }
+  .staff-wrap{ display:flex; flex-direction:column; gap:8px; }
   .staff-wrap.empty{ display:none; }
 
   .keystrokes{
@@ -213,7 +213,33 @@
     font-size:34px;
     color:#2a2110;
     box-shadow:0 0 0 3px color-mix(in srgb, var(--brass) 55%, transparent);
+    position:relative;
+    overflow:hidden;
+    flex-direction:column;
+    gap:0;
   }
+  .press-now .pn-letter{ position:relative; z-index:1; line-height:1; }
+  .press-now .pn-beats{
+    position:relative; z-index:1;
+    font-size:10px; font-weight:500; letter-spacing:0.04em;
+    margin-top:4px; color:#6b5d3e; text-transform:uppercase;
+  }
+  .press-now .pn-fill{
+    position:absolute; left:0; bottom:0; top:0;
+    width:0%;
+    background:linear-gradient(to bottom, color-mix(in srgb, var(--brass) 70%, #fff), var(--brass));
+    z-index:0;
+  }
+  .press-now.short{ box-shadow:0 0 0 3px #d08a2e; }
+  .hold-hint{
+    font-size:11px;
+    color:var(--ink-dim);
+    font-family:var(--font-display);
+    font-style:italic;
+    min-height:16px;
+  }
+  .hold-hint.warn{ color:#d08a2e; }
+  .press-col{ display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 auto; }
   .press-now.done{
     background:linear-gradient(to bottom, var(--brass), #a9823a);
     box-shadow:none;
@@ -232,6 +258,7 @@
   }
   .key-chip{
     flex:0 0 auto;
+    position:relative;
     width:34px;
     height:34px;
     border-radius:7px;
@@ -247,6 +274,25 @@
     opacity:0.6;
   }
   .key-chip.played{ opacity:0.25; text-decoration:line-through; }
+  .key-chip .chip-beats{
+    position:absolute; right:4px; bottom:1px;
+    font-size:9px; font-weight:500; opacity:0.8;
+  }
+  .key-chip::after{
+    /* one tick per beat along the bottom edge, so length reads like a ruler */
+    content:""; position:absolute; left:4px; right:4px; bottom:3px; height:2px;
+    background:repeating-linear-gradient(to right, var(--brass-dim) 0 2px, transparent 2px var(--beat-px,40px));
+    opacity:0.7;
+  }
+  .rhythm-key{
+    display:flex; gap:12px; flex-wrap:wrap;
+    font-size:10px; color:var(--ink-dim); letter-spacing:0.04em;
+  }
+  .rhythm-key span{ display:inline-flex; align-items:center; gap:5px; }
+  .rhythm-key i{
+    display:inline-block; height:10px; border-radius:3px;
+    border:1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+  }
 
   .played-trail{
     flex:0 0 auto;
@@ -469,6 +515,7 @@
         <div class="control" style="flex-direction:row; align-items:center; gap:6px;">
           <span style="text-transform:none; letter-spacing:0;">BPM</span>
           <input id="bpm" type="range" min="60" max="160" value="100" style="width:80px;">
+          <span id="bpmVal" style="text-transform:none; letter-spacing:0; min-width:3ch;">100</span>
         </div>
         <label class="sheet-btn" for="midiFile" style="cursor:pointer;">Import MIDI</label>
         <input id="midiFile" type="file" accept=".mid,.midi" style="display:none;">
@@ -478,8 +525,21 @@
     <div class="track-picker" id="trackPicker" hidden></div>
     <div class="staff-wrap empty" id="staffWrap">
       <div class="keystrokes">
-        <div class="press-now" id="pressNow">Z</div>
+        <div class="press-col">
+          <div class="press-now" id="pressNow">
+            <div class="pn-fill" id="pnFill"></div>
+            <span class="pn-letter" id="pnLetter">Z</span>
+            <span class="pn-beats" id="pnBeats"></span>
+          </div>
+        </div>
         <div class="upcoming-row" id="upcomingRow"></div>
+      </div>
+      <div class="hold-hint" id="holdHint"></div>
+      <div class="rhythm-key" aria-label="How long to hold">
+        <span><i style="width:10px"></i>quick tap (½ beat)</span>
+        <span><i style="width:20px"></i>1 beat</span>
+        <span><i style="width:40px"></i>2 beats</span>
+        <span><i style="width:80px"></i>4 beats — hold until the key fills</span>
       </div>
     </div>
   </div>
@@ -1001,22 +1061,24 @@
     var done = sheetState.cursor >= seq.length;
 
     pressNow.classList.toggle("done", done);
-    pressNow.textContent = done ? "✓" : seq[sheetState.cursor].k.toUpperCase();
+    document.getElementById("pnLetter").textContent = done ? "✓" : seq[sheetState.cursor].k.toUpperCase();
+    document.getElementById("pnBeats").textContent = done ? "" : beatsLabel(seq[sheetState.cursor].b, true);
+    setFill(0);
+    if(!done && !sheetState.demoPlaying){
+      setHint("Press " + seq[sheetState.cursor].k.toUpperCase() + " and hold " + beatsPhrase(seq[sheetState.cursor].b) + " — let go when the key fills", false);
+    } else if(done){
+      setHint("", false);
+    }
 
     upcoming.innerHTML = "";
     // Show a short trail of already-typed keys, dimmed, then the keys still to come.
+    // Each chip's width is proportional to how long the note lasts.
     var trailStart = Math.max(0, sheetState.cursor-4);
     for(var i=trailStart; i<sheetState.cursor; i++){
-      var played = document.createElement("div");
-      played.className = "key-chip played";
-      played.textContent = seq[i].k.toUpperCase();
-      upcoming.appendChild(played);
+      upcoming.appendChild(makeChip(seq[i], true));
     }
     for(var j=sheetState.cursor+1; j<seq.length; j++){
-      var next = document.createElement("div");
-      next.className = "key-chip";
-      next.textContent = seq[j].k.toUpperCase();
-      upcoming.appendChild(next);
+      upcoming.appendChild(makeChip(seq[j], false));
     }
 
     updateExpectedHighlight();
@@ -1047,16 +1109,118 @@
     setTimeout(function(){ pressNow.classList.remove("miss"); }, 180);
   }
 
+  // ---- Note length helpers ------------------------------------------------
+  var BEAT_PX = 40; // chip width for one beat
+  function beatsLabel(b, withUnit){
+    var whole = Math.floor(b), frac = b - whole;
+    var fracStr = frac === 0.25 ? "¼" : frac === 0.5 ? "½" : frac === 0.75 ? "¾" : "";
+    var s = (whole ? String(whole) : "") + fracStr;
+    if(!s) s = String(Math.round(b*100)/100);
+    if(!withUnit) return s;
+    return s + (b > 1 ? " beats" : " beat");
+  }
+  function beatsPhrase(b){
+    if(b <= 0.5) return "for a quick tap (" + beatsLabel(b, true) + ")";
+    return "for " + beatsLabel(b, true);
+  }
+  function makeChip(note, played){
+    var chip = document.createElement("div");
+    chip.className = "key-chip" + (played ? " played" : "");
+    chip.style.width = Math.max(24, Math.round(note.b * BEAT_PX)) + "px";
+    chip.style.setProperty("--beat-px", BEAT_PX + "px");
+    chip.title = note.k.toUpperCase() + " — hold " + beatsLabel(note.b, true);
+    var letter = document.createElement("span");
+    letter.textContent = note.k.toUpperCase();
+    chip.appendChild(letter);
+    if(note.b >= 1){
+      var beats = document.createElement("span");
+      beats.className = "chip-beats";
+      beats.textContent = beatsLabel(note.b, false);
+      chip.appendChild(beats);
+    }
+    return chip;
+  }
+  function beatMs(){
+    return 60000 / parseFloat(document.getElementById("bpm").value);
+  }
+  function setFill(frac){
+    document.getElementById("pnFill").style.width = (Math.max(0, Math.min(1, frac))*100) + "%";
+  }
+  function setHint(text, warn){
+    var h = document.getElementById("holdHint");
+    h.textContent = text;
+    h.classList.toggle("warn", !!warn);
+  }
+
+  // ---- Hold tracking --------------------------------------------------------
+  // The right key starts a hold; the big key fills over the note's length.
+  // Filling up (or letting go close enough to the end) moves on to the next
+  // note. Letting go much too early asks for a retry.
+  var hold = null; // {key, start, need, raf}
+
+  function cancelHold(){
+    if(hold && hold.raf) cancelAnimationFrame(hold.raf);
+    hold = null;
+    setFill(0);
+  }
+
+  function completeHold(){
+    if(hold && hold.raf) cancelAnimationFrame(hold.raf);
+    hold = null;
+    sheetState.cursor++;
+    renderSheet();
+  }
+
+  function tickHold(){
+    if(!hold) return;
+    var frac = (performance.now() - hold.start) / hold.need;
+    setFill(frac);
+    if(frac >= 1){ completeHold(); return; }
+    hold.raf = requestAnimationFrame(tickHold);
+  }
+
   function handlePracticeKey(key){
     if(!sheetState.song || sheetState.demoPlaying) return;
     var seq = SONGS[sheetState.song];
     if(sheetState.cursor >= seq.length) return;
-    if(seq[sheetState.cursor].k === key){
-      sheetState.cursor++;
-      renderSheet();
+    if(hold) return; // already holding the current note
+    var note = seq[sheetState.cursor];
+    if(note.k === key){
+      hold = { key:key, start:performance.now(), need:note.b * beatMs(), raf:null };
+      setHint("Holding… let go when the key fills", false);
+      hold.raf = requestAnimationFrame(tickHold);
     } else {
       flashMiss();
     }
+  }
+
+  function handlePracticeRelease(key){
+    if(!hold || hold.key !== key) return;
+    var elapsed = performance.now() - hold.start;
+    // Short notes get a generous window, since a fast tap is ~100ms anyway.
+    var threshold = Math.max(0, Math.min(hold.need * 0.6, hold.need - 150));
+    if(elapsed >= threshold){
+      completeHold();
+    } else {
+      var seq = SONGS[sheetState.song];
+      var note = seq[sheetState.cursor];
+      cancelHold();
+      var pressNow = document.getElementById("pressNow");
+      pressNow.classList.add("short");
+      setTimeout(function(){ pressNow.classList.remove("short"); }, 300);
+      setHint("A little longer — hold " + note.k.toUpperCase() + " " + beatsPhrase(note.b) + ". Try again.", true);
+    }
+  }
+
+  function animateDemoFill(ms){
+    var start = performance.now();
+    function frame(){
+      if(!sheetState.demoPlaying) return;
+      var frac = (performance.now() - start) / ms;
+      setFill(frac);
+      if(frac < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
   }
 
   function stopDemo(){
@@ -1073,6 +1237,7 @@
   function playDemo(){
     if(!sheetState.song) return;
     if(sheetState.demoPlaying){ stopDemo(); return; }
+    cancelHold();
     ensureAudio();
     if(ctx.state === "suspended") ctx.resume();
     document.getElementById("startOverlay").classList.add("hidden");
@@ -1088,6 +1253,8 @@
       noteOn(note.k);
       sheetState.cursor = i;
       renderSheet();
+      setHint("Demo — watch how long each key stays held", false);
+      animateDemoFill(note.b * beatMs);
       var holdMs = note.b * beatMs * 0.85;
       setTimeout(function(){ noteOff(note.k); }, holdMs);
       i++;
@@ -1097,8 +1264,13 @@
     step();
   }
 
+  document.getElementById("bpm").addEventListener("input", function(e){
+    document.getElementById("bpmVal").textContent = e.target.value;
+  });
+
   document.getElementById("songSelect").addEventListener("change", function(e){
     stopDemo();
+    cancelHold();
     sheetState.song = e.target.value || null;
     sheetState.cursor = 0;
     document.getElementById("demoBtn").disabled = !sheetState.song;
@@ -1107,6 +1279,8 @@
   });
   document.getElementById("demoBtn").addEventListener("click", playDemo);
   document.getElementById("restartBtn").addEventListener("click", function(){
+    stopDemo();
+    cancelHold();
     sheetState.cursor = 0;
     renderSheet();
   });
@@ -1139,6 +1313,7 @@
     if(!(key in BASE_MAP)) return;
     pressedKeys[key] = false;
     noteOff(key);
+    handlePracticeRelease(key);
   });
 
   document.getElementById("sustain").addEventListener("change", function(e){
