@@ -1,4 +1,4 @@
-# Clavier
+# Kiano
 
 **▶ Play it: https://msawaged.github.io/clavier/**
 
