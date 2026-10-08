@@ -296,10 +296,10 @@
     font-size:9px; font-weight:500; opacity:0.8;
   }
   .key-chip::after{
-    /* one tick per beat along the bottom edge, so length reads like a ruler */
-    content:""; position:absolute; left:4px; right:4px; bottom:3px; height:2px;
-    background:repeating-linear-gradient(to right, var(--brass-dim) 0 2px, transparent 2px var(--beat-px,40px));
-    opacity:0.7;
+    /* a solid length bar along the bottom — no dots or digits, since . , and
+       number keys are real notes and would be misread */
+    content:""; position:absolute; left:6px; right:6px; bottom:4px; height:2px;
+    border-radius:1px; background:var(--brass-dim); opacity:0.6;
   }
   .rhythm-key{
     display:flex; gap:12px; flex-wrap:wrap;
@@ -918,71 +918,77 @@
   }
 
   // ---- Song sheet (keystroke-aligned practice strip) -----------------------
-  // All songs use only the lower-row letters (z x c v b n m ,), one octave,
-  // so they work regardless of the current octave shift.
+  // Songs are written as "NOTE:beats" pairs (all public-domain melodies) and
+  // turned into keystrokes. Notes C4–E5 use the bottom row (z x c v b n m , . /),
+  // anything higher uses the top row (r t y u i o p), so most of each song stays
+  // on one row of the keyboard.
+  var NOTE_TO_KEY = {};
+  ["z","s","x","d","c","v","g","b","h","n","j","m",",","l",".",";","/"].forEach(function(k){ NOTE_TO_KEY[BASE_MAP[k]] = k; });
+  ["r","5","t","6","y","7","u","i","9","o","0","p"].forEach(function(k){ if(!NOTE_TO_KEY[BASE_MAP[k]]) NOTE_TO_KEY[BASE_MAP[k]] = k; });
+  function song(text){
+    return text.trim().split(/\s+/).map(function(tok){
+      var parts = tok.split(":");
+      var k = NOTE_TO_KEY[parts[0]];
+      if(!k) throw new Error("No key for note " + parts[0]);
+      return {k:k, b:parseFloat(parts[1])};
+    });
+  }
+
   var SONGS = {
-    hotcross: [
-      {k:"c",b:1},{k:"x",b:1},{k:"z",b:2},
-      {k:"c",b:1},{k:"x",b:1},{k:"z",b:2},
-      {k:"z",b:0.5},{k:"z",b:0.5},{k:"z",b:0.5},{k:"z",b:0.5},
-      {k:"x",b:0.5},{k:"x",b:0.5},{k:"x",b:0.5},{k:"x",b:0.5},
-      {k:"c",b:1},{k:"x",b:1},{k:"z",b:2}
-    ],
-    twinkle: [
-      {k:"z",b:1},{k:"z",b:1},{k:"b",b:1},{k:"b",b:1},
-      {k:"n",b:1},{k:"n",b:1},{k:"b",b:2},
-      {k:"v",b:1},{k:"v",b:1},{k:"c",b:1},{k:"c",b:1},
-      {k:"x",b:1},{k:"x",b:1},{k:"z",b:2}
-    ],
-    mary: [
-      {k:"c",b:1},{k:"x",b:1},{k:"z",b:1},{k:"x",b:1},
-      {k:"c",b:1},{k:"c",b:1},{k:"c",b:2},
-      {k:"x",b:1},{k:"x",b:1},{k:"x",b:2},
-      {k:"c",b:1},{k:"b",b:1},{k:"b",b:2},
-      {k:"c",b:1},{k:"x",b:1},{k:"z",b:1},{k:"x",b:1},
-      {k:"c",b:1},{k:"c",b:1},{k:"c",b:1},{k:"c",b:1},
-      {k:"x",b:1},{k:"x",b:1},{k:"c",b:1},{k:"x",b:1},{k:"z",b:4}
-    ],
-    ode: [
-      {k:"c",b:1},{k:"c",b:1},{k:"v",b:1},{k:"b",b:1},
-      {k:"b",b:1},{k:"v",b:1},{k:"c",b:1},{k:"x",b:1},
-      {k:"z",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:1},
-      {k:"c",b:1.5},{k:"x",b:0.5},{k:"x",b:2}
-    ],
-    rowboat: [
-      {k:"z",b:1},{k:"z",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:2},
-      {k:"c",b:1},{k:"x",b:1},{k:"c",b:1},{k:"v",b:1},{k:"b",b:2}
-    ],
-    weasel: [
-      {k:"z",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:1},
-      {k:"x",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:1},
-      {k:"x",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:0.5},{k:"v",b:0.5},
-      {k:"b",b:2}
-    ],
-    yankee: [
-      {k:"z",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:1},{k:"z",b:1},{k:"c",b:1},{k:"x",b:2},
-      {k:"x",b:1},{k:"c",b:1},{k:"v",b:1},{k:"c",b:1},{k:"x",b:1},{k:"z",b:2}
-    ],
-    jingle: [
-      {k:"c",b:1},{k:"c",b:1},{k:"c",b:2},
-      {k:"c",b:1},{k:"c",b:1},{k:"c",b:2},
-      {k:"c",b:1},{k:"b",b:1},{k:"z",b:1},{k:"x",b:1},{k:"c",b:2}
-    ],
-    grace: [
-      {k:"b",b:1},{k:"z",b:1},{k:"z",b:1},{k:"c",b:1},
-      {k:"x",b:1},{k:"z",b:1},{k:"n",b:1},{k:"b",b:3}
-    ],
-    saints: [
-      {k:"z",b:1},{k:"c",b:1},{k:"v",b:1},{k:"b",b:2},
-      {k:"z",b:1},{k:"c",b:1},{k:"v",b:1},{k:"b",b:2}
-    ],
-    birthday: [
-      {k:"z",b:0.75},{k:"z",b:0.25},{k:"x",b:1},{k:"z",b:1},{k:"v",b:1},{k:"c",b:2}
-    ],
-    furelise: [
-      {k:"/",b:1},{k:";",b:1},{k:"/",b:1},{k:";",b:1},{k:"/",b:1},
-      {k:"m",b:1},{k:".",b:1},{k:",",b:1},{k:"n",b:2}
-    ]
+    hotcross: song(
+      "E4:1 D4:1 C4:2  E4:1 D4:1 C4:2 " +
+      "C4:.5 C4:.5 C4:.5 C4:.5 D4:.5 D4:.5 D4:.5 D4:.5  E4:1 D4:1 C4:2"),
+    twinkle: song(
+      "C4:1 C4:1 G4:1 G4:1 A4:1 A4:1 G4:2  F4:1 F4:1 E4:1 E4:1 D4:1 D4:1 C4:2 " +
+      "G4:1 G4:1 F4:1 F4:1 E4:1 E4:1 D4:2  G4:1 G4:1 F4:1 F4:1 E4:1 E4:1 D4:2 " +
+      "C4:1 C4:1 G4:1 G4:1 A4:1 A4:1 G4:2  F4:1 F4:1 E4:1 E4:1 D4:1 D4:1 C4:2"),
+    mary: song(
+      "E4:1 D4:1 C4:1 D4:1 E4:1 E4:1 E4:2  D4:1 D4:1 D4:2  E4:1 G4:1 G4:2 " +
+      "E4:1 D4:1 C4:1 D4:1 E4:1 E4:1 E4:1 E4:1  D4:1 D4:1 E4:1 D4:1 C4:4"),
+    ode: song(
+      "B4:1 B4:1 C5:1 D5:1 D5:1 C5:1 B4:1 A4:1 G4:1 G4:1 A4:1 B4:1 B4:1.5 A4:.5 A4:2 " +
+      "B4:1 B4:1 C5:1 D5:1 D5:1 C5:1 B4:1 A4:1 G4:1 G4:1 A4:1 B4:1 A4:1.5 G4:.5 G4:2 " +
+      "A4:1 A4:1 B4:1 G4:1 A4:1 B4:.5 C5:.5 B4:1 G4:1 A4:1 B4:.5 C5:.5 B4:1 A4:1 G4:1 A4:1 D4:2 " +
+      "B4:1 B4:1 C5:1 D5:1 D5:1 C5:1 B4:1 A4:1 G4:1 G4:1 A4:1 B4:1 A4:1.5 G4:.5 G4:2"),
+    rowboat: song(
+      "C4:1 C4:1 C4:.75 D4:.25 E4:1  E4:.75 D4:.25 E4:.75 F4:.25 G4:2 " +
+      "C5:.5 C5:.5 C5:.5 G4:.5 G4:.5 G4:.5 E4:.5 E4:.5 E4:.5 C4:.5 C4:.5 C4:.5 " +
+      "G4:.75 F4:.25 E4:.75 D4:.25 C4:2"),
+    weasel: song(
+      "C4:1 C4:.5 D4:1 D4:.5 E4:.5 G4:.5 E4:.5 C4:1.5 " +
+      "C4:1 C4:.5 D4:1 D4:.5 E4:1.5 C4:1.5 " +
+      "C4:1 C4:.5 D4:1 D4:.5 E4:.5 G4:.5 E4:.5 C4:1.5 " +
+      "A4:1.5 D4:1 F4:.5 E4:1.5 C4:1.5"),
+    yankee: song(
+      "F4:1 F4:1 G4:1 A4:1 F4:1 A4:1 G4:1 C4:1 " +
+      "F4:1 F4:1 G4:1 A4:1 F4:2 E4:2 " +
+      "F4:1 F4:1 G4:1 A4:1 A#4:1 A4:1 G4:1 F4:1 " +
+      "E4:1 C4:1 D4:1 E4:1 F4:2 F4:2"),
+    jingle: song(
+      "E4:1 E4:1 E4:2  E4:1 E4:1 E4:2  E4:1 G4:1 C4:1.5 D4:.5 E4:4 " +
+      "F4:1 F4:1 F4:1.5 F4:.5 F4:1 E4:1 E4:1 E4:.5 E4:.5  E4:1 D4:1 D4:1 E4:1 D4:2 G4:2 " +
+      "E4:1 E4:1 E4:2  E4:1 E4:1 E4:2  E4:1 G4:1 C4:1.5 D4:.5 E4:4 " +
+      "F4:1 F4:1 F4:1.5 F4:.5 F4:1 E4:1 E4:1 E4:.5 E4:.5  G4:1 G4:1 F4:1 D4:1 C4:4"),
+    grace: song(
+      "G4:1  C5:2 E5:.5 C5:.5  E5:2 D5:1  C5:2 A4:1  G4:2 G4:1 " +
+      "C5:2 E5:.5 C5:.5  E5:2 D5:1  G5:3  G5:2 E5:1 " +
+      "G5:2 E5:.5 G5:.5  E5:2 C5:1  G4:2 A4:1  C5:1.5 C5:.5 A4:1  G4:2 G4:1 " +
+      "C5:2 E5:.5 C5:.5  E5:2 D5:1  C5:3"),
+    saints: song(
+      "C4:1 E4:1 F4:1 G4:4  C4:1 E4:1 F4:1 G4:4 " +
+      "C4:1 E4:1 F4:1 G4:2 E4:2 C4:2 E4:2 D4:4 " +
+      "E4:1 E4:1 D4:1 C4:3 C4:1 E4:2 G4:2 G4:1 F4:3 " +
+      "E4:1 F4:1 G4:2 E4:2 C4:2 D4:2 C4:4"),
+    birthday: song(
+      "G4:.75 G4:.25 A4:1 G4:1 C5:1 B4:2 " +
+      "G4:.75 G4:.25 A4:1 G4:1 D5:1 C5:2 " +
+      "G4:.75 G4:.25 G5:1 E5:1 C5:1 B4:1 A4:2 " +
+      "F5:.75 F5:.25 E5:1 C5:1 D5:1 C5:2"),
+    furelise: song(
+      "E5:.5 D#5:.5 E5:.5 D#5:.5 E5:.5 B4:.5 D5:.5 C5:.5 A4:1.5 " +
+      "C4:.5 E4:.5 A4:.5 B4:1.5  E4:.5 G#4:.5 B4:.5 C5:1.5 " +
+      "E4:.5 E5:.5 D#5:.5 E5:.5 D#5:.5 E5:.5 B4:.5 D5:.5 C5:.5 A4:1.5 " +
+      "C4:.5 E4:.5 A4:.5 B4:1.5  E4:.5 C5:.5 B4:.5 A4:2")
   };
   var customSongCount = 0;
 
@@ -1280,12 +1286,6 @@
     var letter = document.createElement("span");
     letter.textContent = note.k.toUpperCase();
     chip.appendChild(letter);
-    if(note.b >= 1){
-      var beats = document.createElement("span");
-      beats.className = "chip-beats";
-      beats.textContent = beatsLabel(note.b, false);
-      chip.appendChild(beats);
-    }
     return chip;
   }
   function beatMs(){
