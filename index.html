@@ -188,6 +188,23 @@
   .sheet-status.done{ color:var(--brass); }
 
   .staff-wrap{ display:flex; flex-direction:column; gap:8px; }
+
+  /* Music stand: the practice sheet sits directly on the keyboard, same width,
+     so your eyes move straight down from the note to the key. */
+  .stand-area{ display:flex; flex-direction:column; align-items:stretch; }
+  .music-stand{
+    width:714px;               /* = 17 white keys × 42px, the piano's width */
+    max-width:calc(100% - 24px);
+    margin:0 auto;
+    background:var(--panel);
+    border:1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+    border-bottom:none;
+    border-radius:10px 10px 0 0;
+    padding:12px 14px 10px;
+    box-sizing:border-box;
+  }
+  .music-stand:has(.staff-wrap.empty){ display:none; }
+  .now-playing{ justify-content:center; }
   .staff-wrap.empty{ display:none; }
 
   .keystrokes{
@@ -526,31 +543,35 @@
       <div class="sheet-status" id="sheetStatus">Pick a song to get a keystroke sheet</div>
     </div>
     <div class="track-picker" id="trackPicker" hidden></div>
-    <div class="staff-wrap empty" id="staffWrap">
-      <div class="keystrokes">
-        <div class="press-col">
-          <div class="press-now" id="pressNow">
-            <div class="pn-fill" id="pnFill"></div>
-            <span class="pn-letter" id="pnLetter">Z</span>
-            <span class="pn-beats" id="pnBeats"></span>
+  </div>
+  <div class="stand-area">
+    <div class="music-stand">
+      <div class="staff-wrap empty" id="staffWrap">
+        <div class="keystrokes">
+          <div class="press-col">
+            <div class="press-now" id="pressNow">
+              <div class="pn-fill" id="pnFill"></div>
+              <span class="pn-letter" id="pnLetter">Z</span>
+              <span class="pn-beats" id="pnBeats"></span>
+            </div>
           </div>
+          <div class="upcoming-row" id="upcomingRow"></div>
         </div>
-        <div class="upcoming-row" id="upcomingRow"></div>
+        <div class="hold-hint" id="holdHint"></div>
+        <div class="rhythm-key" aria-label="How long to hold">
+          <span><i style="width:10px"></i>quick tap (½ beat)</span>
+          <span><i style="width:20px"></i>1 beat</span>
+          <span><i style="width:40px"></i>2 beats</span>
+          <span><i style="width:80px"></i>4 beats — hold until the key fills</span>
+        </div>
       </div>
-      <div class="hold-hint" id="holdHint"></div>
-      <div class="rhythm-key" aria-label="How long to hold">
-        <span><i style="width:10px"></i>quick tap (½ beat)</span>
-        <span><i style="width:20px"></i>1 beat</span>
-        <span><i style="width:40px"></i>2 beats</span>
-        <span><i style="width:80px"></i>4 beats — hold until the key fills</span>
-      </div>
+    </div>
+    <div class="piano-wrap">
+      <div class="piano" id="piano"></div>
     </div>
   </div>
   <div class="now-playing" id="nowPlaying">
     <span class="hint">Nothing sounding yet — start typing</span>
-  </div>
-  <div class="piano-wrap">
-    <div class="piano" id="piano"></div>
   </div>
 </main>
 
