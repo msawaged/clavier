@@ -2,7 +2,7 @@
 
 **▶ Play it: https://msawaged.github.io/clavier/**
 
-A typing piano that runs in your browser. Two rows of your computer keyboard map to two overlapping piano octaves, and you can hold several keys at once to play chords.
+A piano you play with your computer keyboard — or by tapping the keys on your phone. Two rows of your computer keyboard map to two overlapping piano octaves, and you can hold several keys at once to play chords.
 
 - **Play:** open `index.html` and click **Start playing**
 - **Lower row:** `Z X C V B N M , . /` (white keys) + `S D G H J L ;` (sharps)
@@ -12,3 +12,8 @@ A typing piano that runs in your browser. Two rows of your computer keyboard map
 - **Hold timing:** upcoming keys are sized by note length; the big key fills while you hold it and moves on when full
 - **Song sheets:** built-in songs show the next key to press, with demo playback and adjustable BPM
 - **MIDI import:** load a `.mid` file and play along
+- **Phones & tablets:** tap the keys (multi-touch chords work); labels switch to note names
+- **Easy mode:** no timing — just press the glowing key (great for kids)
+- **Rainbow notes:** every note has its own color
+- **Songs by level:** ★ Easy, ★★ Medium, ★★★ Challenge — finish one to earn up to 3 stars
+- **Musician tools:** chord names (C major, A minor, G7…), metronome, record / play back / save
