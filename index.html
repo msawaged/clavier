@@ -453,12 +453,15 @@
   </div>
   <div class="controls">
     <div class="control">
-      Waveform
-      <select id="wave">
-        <option value="triangle" selected>Warm (triangle)</option>
-        <option value="sine">Soft (sine)</option>
-        <option value="sawtooth">Bright (saw)</option>
-        <option value="square">Reed (square)</option>
+      Sound
+      <select id="sound">
+        <option value="piano" selected>Piano</option>
+        <option value="808">808 Bass</option>
+        <option value="epiano">Electric Piano</option>
+        <option value="organ">Organ</option>
+        <option value="synth">Synth Lead</option>
+        <option value="musicbox">Music Box</option>
+        <option value="classic">Classic Kiano</option>
       </select>
     </div>
     <div class="control">
@@ -620,37 +623,161 @@
     ensureAudio();
     if(ctx.state === "suspended") ctx.resume();
 
-    var freq = midiToFreq(midi);
-    var wave = document.getElementById("wave").value;
+    var preset = SOUNDS[document.getElementById("sound").value] || SOUNDS.piano;
+    var freq = midiToFreq(midi + (preset.shift || 0));
     var now = ctx.currentTime;
 
-    var osc = ctx.createOscillator();
-    osc.type = wave;
-    osc.frequency.value = freq;
-
-    var osc2 = ctx.createOscillator();
-    osc2.type = "sine";
-    osc2.frequency.value = freq * 2.003; // slight detune for body, like a piano's doubled string
-    var osc2Gain = ctx.createGain();
-    osc2Gain.gain.value = 0.18;
-
     var gain = ctx.createGain();
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.9, now + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.35, now + 0.35);
-
-    osc.connect(gain);
-    osc2.connect(osc2Gain);
-    osc2Gain.connect(gain);
     gain.connect(masterGain);
+    var oscs = preset.build(freq, now, gain);
 
-    osc.start(now);
-    osc2.start(now);
-
-    voices[key] = {osc:osc, osc2:osc2, gain:gain, midi:midi};
+    voices[key] = {oscs:oscs, gain:gain, midi:midi, release:preset.release || 0.18};
     updateKeyVisual(midi, true);
     updateNowPlaying();
   }
+
+  // ---- Sound presets --------------------------------------------------------
+  // Each preset wires oscillators into `out` (the voice's gain node), shapes its
+  // envelope, and returns the oscillators so they can be stopped on release.
+  // `shift` moves the sound up/down in semitones (808s live down in the bass).
+  function osc(type, freq, now){
+    var o = ctx.createOscillator();
+    o.type = type; o.frequency.setValueAtTime(freq, now);
+    o.start(now);
+    return o;
+  }
+  function partial(o, level, dest){
+    var g = ctx.createGain(); g.gain.value = level;
+    o.connect(g); g.connect(dest);
+    return g;
+  }
+  var saturationCurve = null;
+  function saturator(){
+    if(!saturationCurve){
+      saturationCurve = new Float32Array(1024);
+      for(var i=0;i<1024;i++){ var x = i/511.5 - 1; saturationCurve[i] = Math.tanh(x*3); }
+    }
+    var ws = ctx.createWaveShaper();
+    ws.curve = saturationCurve;
+    ws.oversample = "2x";
+    return ws;
+  }
+
+  var SOUNDS = {
+    piano: {
+      release: 0.25,
+      build: function(f, now, out){
+        // Bright hammer attack that mellows and fades even while held, like a real string.
+        var lp = ctx.createBiquadFilter(); lp.type = "lowpass";
+        lp.frequency.setValueAtTime(Math.min(f*12, 12000), now);
+        lp.frequency.exponentialRampToValueAtTime(Math.max(f*3, 400), now + 1.2);
+        lp.connect(out);
+        var a = osc("triangle", f, now), b = osc("sine", f*2.003, now), c = osc("sine", f*3.01, now);
+        partial(a, 0.8, lp); partial(b, 0.25, lp); partial(c, 0.08, lp);
+        out.gain.setValueAtTime(0, now);
+        out.gain.linearRampToValueAtTime(0.9, now + 0.005);
+        out.gain.exponentialRampToValueAtTime(0.4, now + 0.3);
+        out.gain.exponentialRampToValueAtTime(0.03, now + 4);
+        return [a,b,c];
+      }
+    },
+    "808": {
+      shift: -24, release: 0.35,
+      build: function(f, now, out){
+        // Sine that drops in pitch on attack, pushed through saturation for grit,
+        // with a long boomy tail — the classic 808 bass.
+        var ws = saturator(); ws.connect(out);
+        var drive = ctx.createGain(); drive.gain.value = 1.6; drive.connect(ws);
+        var a = osc("sine", f*2.2, now);
+        a.frequency.exponentialRampToValueAtTime(f, now + 0.06);
+        a.connect(drive);
+        var click = osc("triangle", f*4, now);
+        var cg = partial(click, 0.5, drive);
+        cg.gain.setValueAtTime(0.5, now);
+        cg.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+        out.gain.setValueAtTime(0, now);
+        out.gain.linearRampToValueAtTime(0.95, now + 0.004);
+        out.gain.exponentialRampToValueAtTime(0.6, now + 0.25);
+        out.gain.exponentialRampToValueAtTime(0.05, now + 3.5);
+        return [a, click];
+      }
+    },
+    epiano: {
+      release: 0.3,
+      build: function(f, now, out){
+        // Rhodes-style: soft sine body + a short bell-like tine, gentle tremolo.
+        var trem = ctx.createGain(); trem.gain.value = 1; trem.connect(out);
+        var lfo = osc("sine", 5, now);
+        var lfoDepth = ctx.createGain(); lfoDepth.gain.value = 0.12;
+        lfo.connect(lfoDepth); lfoDepth.connect(trem.gain);
+        var a = osc("sine", f, now), b = osc("sine", f*4.0, now), c = osc("sine", f*2, now);
+        partial(a, 0.8, trem); partial(c, 0.15, trem);
+        var bell = partial(b, 0.3, trem);
+        bell.gain.setValueAtTime(0.3, now);
+        bell.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        out.gain.setValueAtTime(0, now);
+        out.gain.linearRampToValueAtTime(0.85, now + 0.008);
+        out.gain.exponentialRampToValueAtTime(0.35, now + 1.5);
+        out.gain.exponentialRampToValueAtTime(0.05, now + 5);
+        return [a,b,c,lfo];
+      }
+    },
+    organ: {
+      release: 0.08,
+      build: function(f, now, out){
+        // Drawbar organ: stacked harmonics, steady for as long as the key is held.
+        var a = osc("sine", f, now), b = osc("sine", f*2, now), c = osc("sine", f*3, now), d = osc("sine", f*4, now);
+        partial(a, 0.5, out); partial(b, 0.35, out); partial(c, 0.2, out); partial(d, 0.12, out);
+        out.gain.setValueAtTime(0, now);
+        out.gain.linearRampToValueAtTime(0.7, now + 0.015);
+        return [a,b,c,d];
+      }
+    },
+    synth: {
+      release: 0.2,
+      build: function(f, now, out){
+        // Two detuned saws through a sweeping low-pass filter.
+        var lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 6;
+        lp.frequency.setValueAtTime(f*1.5, now);
+        lp.frequency.exponentialRampToValueAtTime(Math.min(f*10, 10000), now + 0.08);
+        lp.frequency.exponentialRampToValueAtTime(Math.min(f*4, 6000), now + 0.6);
+        lp.connect(out);
+        var a = osc("sawtooth", f*0.997, now), b = osc("sawtooth", f*1.003, now);
+        partial(a, 0.3, lp); partial(b, 0.3, lp);
+        out.gain.setValueAtTime(0, now);
+        out.gain.linearRampToValueAtTime(0.7, now + 0.01);
+        out.gain.exponentialRampToValueAtTime(0.5, now + 0.3);
+        return [a,b];
+      }
+    },
+    musicbox: {
+      shift: 12, release: 0.6,
+      build: function(f, now, out){
+        // Plucked metal comb: pure tone with a bright inharmonic ping, quick fade.
+        var a = osc("sine", f, now), b = osc("sine", f*5.4, now);
+        partial(a, 0.7, out);
+        var ping = partial(b, 0.2, out);
+        ping.gain.setValueAtTime(0.2, now);
+        ping.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        out.gain.setValueAtTime(0, now);
+        out.gain.linearRampToValueAtTime(0.8, now + 0.003);
+        out.gain.exponentialRampToValueAtTime(0.01, now + 1.6);
+        return [a,b];
+      }
+    },
+    classic: {
+      release: 0.18,
+      build: function(f, now, out){
+        // The original Kiano tone.
+        var a = osc("triangle", f, now), b = osc("sine", f*2.003, now);
+        a.connect(out); partial(b, 0.18, out);
+        out.gain.setValueAtTime(0, now);
+        out.gain.linearRampToValueAtTime(0.9, now + 0.008);
+        out.gain.exponentialRampToValueAtTime(0.35, now + 0.35);
+        return [a,b];
+      }
+    }
+  };
 
   function noteOff(key){
     var v = voices[key];
@@ -661,11 +788,11 @@
 
   function releaseVoice(key, v){
     var now = ctx.currentTime;
+    var rel = v.release || 0.18;
     v.gain.gain.cancelScheduledValues(now);
-    v.gain.gain.setValueAtTime(v.gain.gain.value, now);
-    v.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-    v.osc.stop(now + 0.2);
-    v.osc2.stop(now + 0.2);
+    v.gain.gain.setValueAtTime(Math.max(v.gain.gain.value, 0.0001), now);
+    v.gain.gain.exponentialRampToValueAtTime(0.0001, now + rel);
+    v.oscs.forEach(function(o){ o.stop(now + rel + 0.02); });
     updateKeyVisual(v.midi, false);
     delete voices[key];
     updateNowPlaying();
