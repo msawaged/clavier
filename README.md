@@ -1,5 +1,7 @@
 # Clavier
 
+**▶ Play it: https://msawaged.github.io/clavier/**
+
 A typing piano that runs in your browser. Two rows of your computer keyboard map to two overlapping piano octaves, and you can hold several keys at once to play chords.
 
 - **Play:** open `index.html` and click **Start playing**
