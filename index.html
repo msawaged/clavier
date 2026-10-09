@@ -598,6 +598,10 @@
   .rhythm-key i.len-long{ border-color:var(--len-long) !important; }
   .rhythm-key{ align-items:center; }
   .legend-title{ font-weight:500; color:var(--ink); letter-spacing:.02em; }
+  .rhythm-key .secs{ font-style:normal; color:var(--ink); opacity:.75; }
+  .press-now .pn-beats{ line-height:1.15; text-align:center; }
+  .press-now .pn-secs{ display:block; text-transform:none; letter-spacing:0; font-weight:500; opacity:.85; }
+  .beat-note{ flex-basis:100%; font-family:var(--font-display); font-style:italic; font-size:12px; opacity:.85; }
   @media (max-width:640px){ .legend-title{ flex-basis:100%; } }
   /* Easy mode ignores timing, so no length colors there */
   body.easy .key-chip{ border-color:color-mix(in srgb, var(--ink) 20%, transparent) !important; border-width:1px; }
@@ -750,10 +754,11 @@
         <div class="hold-hint" id="holdHint"></div>
         <div class="rhythm-key" aria-label="Frame color shows how long to hold">
           <b class="legend-title">Frame color = how long to hold:</b>
-          <span><i class="len-tap"></i>Quick tap</span>
-          <span><i class="len-1"></i>1 beat</span>
-          <span><i class="len-2"></i>2 beats</span>
-          <span><i class="len-long"></i>Long hold (3–4 beats)</span>
+          <span><i class="len-tap"></i>Quick tap <em class="secs" data-beats="0.5"></em></span>
+          <span><i class="len-1"></i>1 beat <em class="secs" data-beats="1"></em></span>
+          <span><i class="len-2"></i>2 beats <em class="secs" data-beats="2"></em></span>
+          <span><i class="len-long"></i>Long hold <em class="secs" data-beats="3,4"></em></span>
+          <span class="beat-note" id="beatNote"></span>
         </div>
       </div>
     </div>
@@ -1548,7 +1553,9 @@
     pressNow.classList.toggle("done", done);
     var cur = seq[sheetState.cursor];
     document.getElementById("pnLetter").textContent = done ? "✓" : displayKey(cur.k);
-    document.getElementById("pnBeats").textContent = done ? "" : beatsLabel(cur.b, true);
+    var pnB = document.getElementById("pnBeats");
+    pnB.textContent = done ? "" : beatsLabel(cur.b, true);
+    if(!done){ var sx = document.createElement("span"); sx.className = "pn-secs"; sx.textContent = secs(cur.b).replace("s", " sec"); pnB.appendChild(sx); }
     pressNow.style.setProperty("--nc", done ? "" : keyColor(cur.k));
     var lc = done ? "" : lenClass(cur.b);
     pressNow.style.setProperty("--lc", lc ? "var(--" + lc + ")" : "");
@@ -1778,9 +1785,26 @@
     step();
   }
 
+  // Beats -> seconds at the current BPM, shown in the legend and on the big key.
+  function secs(beats){
+    var t = beats * 60 / parseFloat(document.getElementById("bpm").value);
+    return (t < 10 ? t.toFixed(1) : Math.round(t)) + "s";
+  }
+  function updateBeatTimes(){
+    document.querySelectorAll(".rhythm-key .secs").forEach(function(el){
+      var b = el.dataset.beats.split(",").map(parseFloat);
+      el.textContent = "(" + b.map(function(x){ return secs(x).replace("s",""); }).join("–") + "s)";
+    });
+    var bpm = document.getElementById("bpm").value;
+    document.getElementById("beatNote").textContent =
+      "At " + bpm + " BPM, 1 beat = " + secs(1).replace("s", " sec") + ". Slide BPM down to make every note last longer.";
+    if(sheetState.song && !sheetState.demoPlaying && !hold) renderSheet();
+  }
   document.getElementById("bpm").addEventListener("input", function(e){
     document.getElementById("bpmVal").textContent = e.target.value;
+    updateBeatTimes();
   });
+  updateBeatTimes();
 
   document.getElementById("songSelect").addEventListener("change", function(e){
     stopDemo();
