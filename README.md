@@ -9,11 +9,13 @@ A piano you play with your computer keyboard — or by tapping the keys on your 
 - **Upper row:** `Q W E R T Y U I O P` (white keys) + `2 3 5 6 7 9 0` (sharps)
 - **Sounds:** Piano, 808 Bass, Electric Piano, Organ, Synth Lead, Music Box, Classic Kiano
 - **Controls:** volume, octave shift, sustain (or hold Space)
-- **Hold timing:** upcoming keys are sized by note length; the big key fills while you hold it and moves on when full
+- **Steady rhythm:** every song note rings for its full length; type ahead and the next note waits its turn, so it always sounds even
+- **Speed test:** type 14 letters and Kiano sets the tempo to your typing speed
+- **Follow my speed:** the tempo keeps adjusting to how fast you type as you play
 - **Song sheets:** built-in songs show the next key to press, with demo playback and adjustable BPM
 - **MIDI import:** load a `.mid` file and play along
 - **Phones & tablets:** tap the keys (multi-touch chords work); labels switch to note names
 - **Easy mode:** no timing — just press the glowing key (great for kids)
 - **Rainbow notes:** every note has its own color
-- **Songs by level:** ★ Easy, ★★ Medium, ★★★ Challenge — finish one to earn up to 3 stars
+- **Songs by level:** ★ Easy, ★★ Medium, ★★★ Challenge, ★★★★ Long songs (all public domain) — finish one to earn up to 3 stars
 - **Musician tools:** chord names (C major, A minor, G7…), metronome, record / play back / save

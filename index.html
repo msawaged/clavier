@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Kiano</title>
 <style>
   /* Layout: fixed header with controls, full-bleed piano docked to the bottom,
@@ -567,6 +567,16 @@
 
   /* celebration card */
   .cele-card{ max-width:380px; }
+  .speed-row{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:0 0 16px; }
+  .speed-row span{
+    width:30px; height:34px; border-radius:7px; display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-mono); font-weight:700; font-size:15px;
+    background:var(--bg); color:var(--ink-dim); border:1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  }
+  .speed-row span.now{ background:var(--ivory); color:#2a2110; box-shadow:0 0 0 3px var(--brass); }
+  .speed-row span.ok{ background:var(--brass); color:#1c160f; border-color:var(--brass); }
+  .speed-row.miss span.now{ box-shadow:0 0 0 3px #c0564a; }
+  .speed-result{ font-family:var(--font-display); font-size:17px; color:var(--ink); margin:0 0 16px; }
   .cele-stars{ display:flex; justify-content:center; gap:8px; margin-bottom:6px; }
   .cele-stars span{
     font-size:46px; line-height:1; color:color-mix(in srgb, var(--ink) 18%, transparent);
@@ -686,6 +696,51 @@
     #pnBeats .dot{ width:9px; height:9px; }
     .key-chip{ height:42px !important; }
   }
+
+  /* ---- sheet-music page: every note stays put, a highlight moves across ---- */
+  .keystrokes{ align-items:flex-start !important; }
+  .upcoming-row{
+    position:relative;
+    flex-wrap:wrap !important; align-content:flex-start;
+    overflow-x:hidden !important; overflow-y:auto !important;
+    max-height:166px; gap:8px !important; padding:4px 4px 6px !important;
+    scroll-behavior:smooth; scrollbar-width:thin;
+  }
+  .key-chip{ transition:opacity .2s, transform .15s, box-shadow .15s, background .15s; }
+  .key-chip.played{ opacity:.32 !important; text-decoration:none !important; }
+  .key-chip.played::before{
+    content:"✓"; position:absolute; top:1px; right:3px; font-size:9px; font-weight:700; color:var(--ink);
+  }
+  .key-chip.now{
+    opacity:1 !important; transform:translateY(-2px) scale(1.08); z-index:1;
+    background:color-mix(in srgb, currentColor 22%, var(--bg));
+    box-shadow:0 0 0 2px currentColor, 0 0 16px color-mix(in srgb, currentColor 70%, transparent);
+  }
+  .key-chip.now .chip-letter{ opacity:1; font-weight:800; }
+  body.easy .key-chip.now{ color:var(--brass); }
+  @media (max-width:640px){
+    .upcoming-row{ max-height:150px; gap:6px !important; }
+  }
+
+  /* ---- typing mode: the song reads like a paragraph ---- */
+  .upcoming-row{ gap:7px 4px !important; }
+  .key-chip{ width:auto !important; min-width:30px; padding:0 7px; height:40px !important; font-size:16px; border-radius:7px; }
+  .key-chip .dots .dot{ width:5px; height:5px; }
+  .key-chip .dots .dot.half{ width:4px; height:4px; }
+  .key-chip.phrase-end{ margin-right:16px; }
+  .key-chip.now{ transform:translateY(-2px) scale(1.12); }
+  .key-chip.now::after{
+    display:block !important; content:""; position:absolute; left:4px; right:4px; bottom:-6px; height:3px; border-radius:2px;
+    background:currentColor; animation:caret 1s steps(2) infinite; opacity:1;
+  }
+  @keyframes caret{ 50%{ opacity:.25; } }
+  .key-chip.miss{ animation:shake .25s; box-shadow:0 0 0 2px #c0564a !important; }
+  @keyframes shake{ 25%{ transform:translateX(-3px) scale(1.12);} 75%{ transform:translateX(3px) scale(1.12);} }
+  .cele-stats{ font-family:var(--font-mono); font-size:12px; color:var(--brass); letter-spacing:.02em; }
+  @media (max-width:640px){
+    .key-chip{ min-width:28px; padding:0 6px; height:38px !important; font-size:15px; }
+    .key-chip.phrase-end{ margin-right:12px; }
+  }
   /* ---------- phones ---------- */
   @media (max-width:640px){
     header{ padding:16px 12px 8px; gap:12px; }
@@ -767,6 +822,11 @@
     <span class="track"></span>
     <span>Rainbow notes</span>
   </label>
+  <label class="easy-switch" title="Kiano listens to how fast you type and keeps the song's tempo matched to you">
+    <input type="checkbox" id="followMode" checked>
+    <span class="track"></span>
+    <span>Follow my speed</span>
+  </label>
   <span class="tool-sep"></span>
   <button class="tool-btn" id="metroBtn" title="A steady click at the BPM speed">Metronome</button>
   <button class="tool-btn rec" id="recBtn" title="Record what you play">Record</button>
@@ -798,15 +858,25 @@
             <option value="grace">Amazing Grace</option>
             <option value="furelise">Für Elise — Beethoven</option>
           </optgroup>
+          <optgroup label="★★★★ Long songs">
+            <option value="susanna">Oh! Susanna</option>
+            <option value="auld">Auld Lang Syne</option>
+            <option value="morning">Morning Mood — Grieg</option>
+            <option value="minuet">Minuet in G — Petzold</option>
+            <option value="greensleeves">Greensleeves</option>
+            <option value="mountainking">In the Hall of the Mountain King — Grieg</option>
+            <option value="entertainer">The Entertainer — Scott Joplin</option>
+          </optgroup>
           <optgroup label="Your songs" id="importedGroup" hidden></optgroup>
         </select>
         <button class="sheet-btn" id="demoBtn" disabled>Play demo</button>
         <button class="sheet-btn" id="restartBtn" disabled>Restart</button>
         <div class="control" style="flex-direction:row; align-items:center; gap:6px;">
           <span style="text-transform:none; letter-spacing:0;">BPM</span>
-          <input id="bpm" type="range" min="60" max="160" value="100" style="width:80px;">
+          <input id="bpm" type="range" min="40" max="240" value="100" style="width:80px;">
           <span id="bpmVal" style="text-transform:none; letter-spacing:0; min-width:3ch;">100</span>
         </div>
+        <button class="sheet-btn" id="speedBtn" title="Type a few keys so Kiano learns your speed">⏱ Speed test</button>
         <label class="sheet-btn add-song" for="midiFile" style="cursor:pointer;" title="Load a song from a MIDI (.mid) file">＋ Add your own song</label>
         <button type="button" class="help-link" id="songHelpBtn" aria-expanded="false" aria-controls="songHelp">Where do I get songs?</button>
         <input id="midiFile" type="file" accept=".mid,.midi" style="display:none;">
@@ -829,12 +899,12 @@
   </div>
   <div class="legend-wrap">
     <div class="rhythm-key" aria-label="Dots show how long to hold each key">
-      <b class="legend-title" id="legendTitle">Count the dots: hold the key while its dots light up</b>
+      <b class="legend-title" id="legendTitle">Pick a song — dots show how long each note rings</b>
       <span class="lg len-tap"><span class="dots"><i class="dot half"></i></span>quick tap</span>
       <span class="lg len-1"><span class="dots"><i class="dot"></i></span>1 count</span>
       <span class="lg len-2"><span class="dots"><i class="dot"></i><i class="dot"></i></span>2 counts</span>
       <span class="lg len-long"><span class="dots"><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span>3–4 counts</span>
-      <span class="beat-note" id="beatNote">When the last dot lights, the note stops by itself and the next one is ready. Too fast? Slide BPM down.</span>
+      <span class="beat-note" id="beatNote">Type straight through like a sentence. Each note rings for its dots, then stops by itself. Slower BPM = notes ring longer.</span>
     </div>
   </div>
   <div class="stand-area">
@@ -877,11 +947,25 @@
 
 <div id="fx" aria-hidden="true"></div>
 
+<div class="start-overlay hidden" id="speedTest" role="dialog" aria-modal="true" aria-labelledby="speedTitle">
+  <div class="start-card cele-card">
+    <h2 id="speedTitle">How fast do you type?</h2>
+    <p id="speedMsg">Type these letters at a steady, comfortable pace, the speed you'd play a song. Kiano will set the tempo to match.</p>
+    <div class="speed-row" id="speedRow"></div>
+    <p class="speed-result" id="speedResult" hidden></p>
+    <div class="cele-btns">
+      <button id="speedAgain" class="ghost" hidden>Try again</button>
+      <button id="speedClose">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="start-overlay hidden" id="celebrate" role="dialog" aria-modal="true" aria-labelledby="celeTitle">
   <div class="start-card cele-card">
     <div class="cele-stars" id="celeStars"><span>★</span><span>★</span><span>★</span></div>
     <h2 id="celeTitle">You did it!</h2>
     <p id="celeMsg"></p>
+    <p id="celeStats" class="cele-stats"></p>
     <div class="cele-btns">
       <button id="celeAgain" class="ghost">Play again</button>
       <button id="celeNext">Next song</button>
@@ -1146,6 +1230,7 @@
   function noteOff(key){
     var v = voices[key];
     if(!v) return;
+    if(v.ringUntil && performance.now() < v.ringUntil) return; // song note: let it ring out
     if(sustainActive()) { v.held = false; return; }
     releaseVoice(key, v);
   }
@@ -1169,7 +1254,9 @@
   var spaceHeld = false;
   function releaseAllHeldBySustain(){
     Object.keys(voices).forEach(function(key){
-      if(!pressedKeys[key]) releaseVoice(key, voices[key]);
+      var v = voices[key];
+      if(v.ringUntil && performance.now() < v.ringUntil) return;
+      if(!pressedKeys[key]) releaseVoice(key, v);
     });
   }
 
@@ -1301,8 +1388,7 @@
       if(Object.keys(downIds).length){ downIds[e.pointerId] = true; return; }
       downIds[e.pointerId] = true;
       pressedKeys[k] = true;
-      noteOn(k);
-      handlePracticeKey(k);
+      pressKey(k);
     });
     el.addEventListener("pointerup", release);
     el.addEventListener("pointercancel", release);
@@ -1427,7 +1513,50 @@
       "E5:.5 D#5:.5 E5:.5 D#5:.5 E5:.5 B4:.5 D5:.5 C5:.5 A4:1.5 " +
       "C4:.5 E4:.5 A4:.5 B4:1.5  E4:.5 G#4:.5 B4:.5 C5:1.5 " +
       "E4:.5 E5:.5 D#5:.5 E5:.5 D#5:.5 E5:.5 B4:.5 D5:.5 C5:.5 A4:1.5 " +
-      "C4:.5 E4:.5 A4:.5 B4:1.5  E4:.5 C5:.5 B4:.5 A4:2")
+      "C4:.5 E4:.5 A4:.5 B4:1.5  E4:.5 C5:.5 B4:.5 A4:2"),
+    minuet: song(
+      "D5:1 G4:.5 A4:.5 B4:.5 C5:.5 D5:1 G4:1 G4:1 E5:1 C5:.5 D5:.5 E5:.5 F#5:.5 G5:1 G4:1 G4:1 " +
+      "C5:1 D5:.5 C5:.5 B4:.5 A4:.5 B4:1 C5:.5 B4:.5 A4:.5 G4:.5 F#4:1 G4:.5 A4:.5 B4:.5 G4:.5 A4:3 " +
+      "D5:1 G4:.5 A4:.5 B4:.5 C5:.5 D5:1 G4:1 G4:1 E5:1 C5:.5 D5:.5 E5:.5 F#5:.5 G5:1 G4:1 G4:1 " +
+      "C5:1 D5:.5 C5:.5 B4:.5 A4:.5 B4:1 C5:.5 B4:.5 A4:.5 G4:.5 A4:1 B4:.5 A4:.5 G4:.5 F#4:.5 G4:3 " +
+      "D5:1 G4:.5 A4:.5 B4:.5 C5:.5 D5:1 G4:1 G4:1 E5:1 C5:.5 D5:.5 E5:.5 F#5:.5 G5:1 G4:1 G4:1 " +
+      "C5:1 D5:.5 C5:.5 B4:.5 A4:.5 B4:1 C5:.5 B4:.5 A4:.5 G4:.5 A4:1 B4:.5 A4:.5 G4:.5 F#4:.5 G4:3"),
+    susanna: song(
+      "C4:.5 D4:.5 E4:1 G4:1 G4:1.5 A4:.5 G4:1 E4:1 C4:1.5 D4:.5 E4:1 E4:1 D4:1 C4:1 D4:3 " +
+      "C4:.5 D4:.5 E4:1 G4:1 G4:1.5 A4:.5 G4:1 E4:1 C4:1.5 D4:.5 E4:1 E4:1 D4:1 D4:1 C4:3 " +
+      "F4:2 F4:2 A4:1 A4:2 A4:1 G4:1 G4:1 E4:1 C4:1 D4:3 " +
+      "C4:.5 D4:.5 E4:1 G4:1 G4:1.5 A4:.5 G4:1 E4:1 C4:1.5 D4:.5 E4:1 E4:1 D4:1 D4:1 C4:4"),
+    auld: song(
+      "G4:1 C5:1.5 C5:.5 C5:1 E5:1 D5:1.5 C5:.5 D5:1 E5:.5 D5:.5 C5:1.5 C5:.5 E5:1 G5:1 A5:3 " +
+      "A5:1 G5:1.5 E5:.5 E5:1 C5:1 D5:1.5 C5:.5 D5:1 E5:.5 D5:.5 C5:1.5 A4:.5 A4:1 G4:1 C5:3 " +
+      "A5:1 G5:1.5 E5:.5 E5:1 C5:1 D5:1.5 C5:.5 D5:1 A5:1 G5:1.5 E5:.5 E5:1 G5:1 A5:3 " +
+      "C6:1 G5:1.5 E5:.5 E5:1 C5:1 D5:1.5 C5:.5 D5:1 E5:.5 D5:.5 C5:1.5 A4:.5 A4:1 G4:1 C5:3"),
+    greensleeves: song(
+      "A4:1 C5:2 D5:1 E5:1.5 F5:.5 E5:1 D5:2 B4:1 G4:1.5 A4:.5 B4:1 C5:2 A4:1 " +
+      "A4:1.5 G#4:.5 A4:1 B4:2 G#4:1 E4:2 A4:1 C5:2 D5:1 E5:1.5 F5:.5 E5:1 D5:2 B4:1 " +
+      "G4:1.5 A4:.5 B4:1 C5:1.5 B4:.5 A4:1 G#4:1.5 F#4:.5 G#4:1 A4:3 " +
+      "G5:3 G5:1.5 F#5:.5 E5:1 D5:2 B4:1 G4:1.5 A4:.5 B4:1 C5:2 A4:1 " +
+      "A4:1.5 G#4:.5 A4:1 B4:2 G#4:1 E4:3 G5:3 G5:1.5 F#5:.5 E5:1 D5:2 B4:1 " +
+      "G4:1.5 A4:.5 B4:1 C5:1.5 B4:.5 A4:1 G#4:1.5 F#4:.5 G#4:1 A4:3"),
+    entertainer: song(
+      "D4:.5 D#4:.5 E4:.5 C5:1 E4:.5 C5:1 E4:.5 C5:3 " +
+      "C5:.5 D5:.5 D#5:.5 E5:.5 C5:.5 D5:.5 E5:1 B4:.5 D5:1 C5:3 " +
+      "D4:.5 D#4:.5 E4:.5 C5:1 E4:.5 C5:1 E4:.5 C5:3 " +
+      "A4:.5 G4:.5 F#4:.5 A4:.5 C5:.5 E5:1 D5:.5 C5:.5 A4:.5 D5:3 " +
+      "D4:.5 D#4:.5 E4:.5 C5:1 E4:.5 C5:1 E4:.5 C5:3 " +
+      "C5:.5 D5:.5 D#5:.5 E5:.5 C5:.5 D5:.5 E5:1 B4:.5 D5:1 C5:3 " +
+      "C5:.5 D5:.5 E5:.5 C5:.5 D5:.5 E5:1 C5:.5 D5:.5 C5:.5 E5:.5 C5:.5 D5:.5 E5:1 " +
+      "C5:.5 D5:.5 C5:.5 E5:.5 C5:.5 D5:.5 E5:1 B4:.5 D5:1 C5:3"),
+    mountainking: song(
+      "A4:.5 B4:.5 C5:.5 D5:.5 E5:.5 C5:.5 E5:1 D#5:.5 B4:.5 D#5:1 D5:.5 A#4:.5 D5:1 " +
+      "A4:.5 B4:.5 C5:.5 D5:.5 E5:.5 C5:.5 E5:.5 A5:.5 G5:.5 E5:.5 C5:.5 E5:.5 G5:2 " +
+      "A4:.5 B4:.5 C5:.5 D5:.5 E5:.5 C5:.5 E5:1 D#5:.5 B4:.5 D#5:1 D5:.5 A#4:.5 D5:1 " +
+      "A4:.5 B4:.5 C5:.5 D5:.5 E5:.5 C5:.5 E5:.5 A5:.5 G5:.5 E5:.5 C5:.5 E5:.5 G5:2"),
+    morning: song(
+      "G5:1 E5:.5 D5:.5 C5:.5 D5:.5 E5:.5 G5:1 E5:.5 D5:.5 C5:.5 D5:.5 E5:.5 D5:.5 E5:.5 " +
+      "G5:1 E5:.5 G5:.5 A5:1 E5:.5 A5:.5 G5:1 E5:.5 D5:.5 C5:3 " +
+      "G5:1 E5:.5 D5:.5 C5:.5 D5:.5 E5:.5 G5:1 E5:.5 D5:.5 C5:.5 D5:.5 E5:.5 D5:.5 E5:.5 " +
+      "G5:1 E5:.5 G5:.5 A5:1 E5:.5 A5:.5 G5:1 E5:.5 D5:.5 C5:3")
   };
   var customSongCount = 0;
 
@@ -1670,15 +1799,18 @@
   function keyColor(k){ return BASE_MAP[k] ? noteColor(noteToMidi(BASE_MAP[k])) : ""; }
   function sameNote(a, b){ return a === b || (BASE_MAP[a] && BASE_MAP[a] === BASE_MAP[b]); }
   function isEasy(){ return document.getElementById("easyMode").checked; }
-  function resetScore(){ sheetState.mistakes = 0; sheetState.streak = 0; sheetState.finished = false; }
+  function resetScore(){
+    sheetState.mistakes = 0; sheetState.streak = 0; sheetState.finished = false;
+    sheetState.firstAt = 0; sheetState.lastAt = 0; sheetState.held = 0; sheetState.timed = 0;
+  }
 
   function renderSheet(){
     var wrap = document.getElementById("staffWrap");
     var pressNow = document.getElementById("pressNow");
     var upcoming = document.getElementById("upcomingRow");
     document.getElementById("legendTitle").textContent = sheetState.song
-      ? "Count the dots: hold the key while its dots light up"
-      : "Pick a song — then count the dots: hold each key while its dots light up";
+      ? "Dots = how long each note rings (hold the key for its dots)"
+      : "Pick a song — dots show how long each note rings";
     if(!sheetState.song){
       wrap.classList.add("empty");
       document.getElementById("sheetStatus").textContent = "Pick a song to learn it";
@@ -1704,22 +1836,14 @@
     var verb = IS_TOUCH ? "Tap" : "Press";
     if(!done && !sheetState.demoPlaying){
       if(isEasy()) setHint(verb + " the glowing key!", false);
-      else setHint(cur.b < 1 ? verb + " " + displayKey(cur.k) + " — just a quick tap"
-                             : verb + " and hold " + displayKey(cur.k) + " for " + countWords(cur.b) + " — it stops by itself", false);
+      else if(sheetState.cursor === 0) setHint(typeHint(), false);
     } else if(done){
       setHint("", false);
     }
 
-    upcoming.innerHTML = "";
-    // Show a short trail of already-typed keys, dimmed, then the keys still to come.
-    // Each chip's width is proportional to how long the note lasts.
-    var trailStart = Math.max(0, sheetState.cursor-4);
-    for(var i=trailStart; i<sheetState.cursor; i++){
-      upcoming.appendChild(makeChip(seq[i], true));
-    }
-    for(var j=sheetState.cursor+1; j<seq.length; j++){
-      upcoming.appendChild(makeChip(seq[j], false));
-    }
+    // The whole song is laid out like a page of sheet music. Nothing moves or
+    // disappears — a highlight walks left to right, row by row, as you play.
+    updatePage(seq, done);
 
     updateExpectedHighlight();
     if(done){
@@ -1728,6 +1852,48 @@
     } else {
       document.getElementById("sheetStatus").textContent = "Note " + (sheetState.cursor+1) + " of " + seq.length;
       document.getElementById("sheetStatus").classList.remove("done");
+    }
+  }
+
+  var pageFor = null;   // which song (and mode) the page was built for
+  function chips0(page){ return page.children.length > 0; }
+  function updatePage(seq, done){
+    var page = document.getElementById("upcomingRow");
+    var sig = sheetState.song + "|" + seq.length + "|" + (IS_TOUCH ? "t" : "k");
+    if(pageFor !== sig || page.children.length !== seq.length){
+      page.innerHTML = "";
+      seq.forEach(function(note, i){
+        var chip = makeChip(note, false);
+        chip.dataset.i = i;
+        // A long note usually ends a musical phrase: leave a "word space" after it.
+        if(note.b >= 1.5 || i === seq.length - 1) chip.classList.add("phrase-end");
+        page.appendChild(chip);
+      });
+      pageFor = sig;
+      page.scrollTop = 0;
+    }
+    // Show exactly three full rows (no half-cut row at the bottom).
+    if(chips0(page)){
+      var c = page.children[0], gap = parseFloat(getComputedStyle(page).rowGap) || 8;
+      var padTop = parseFloat(getComputedStyle(page).paddingTop) || 0;
+      // a hair of room for the glowing current key, but less than one gap so the next row can't peek in
+      page.style.maxHeight = Math.floor(padTop + c.offsetHeight * 4 + gap * 3 + Math.min(4, gap - 2)) + "px";
+    }
+    var chips = page.children, cur = sheetState.cursor, nowChip = null;
+    for(var i=0;i<chips.length;i++){
+      chips[i].classList.toggle("played", i < cur);
+      chips[i].classList.toggle("now", i === cur && !done);
+      if(i === cur) nowChip = chips[i];
+    }
+    // Keep the current row in view, with the row you just finished above it.
+    if(nowChip){
+      var rowH = nowChip.offsetHeight + 8;
+      var top = nowChip.offsetTop;
+      if(top < page.scrollTop || top + nowChip.offsetHeight > page.scrollTop + page.clientHeight){
+        page.scrollTop = Math.max(0, top - rowH);
+      }
+    } else if(done){
+      page.scrollTop = page.scrollHeight;
     }
   }
 
@@ -1754,6 +1920,9 @@
   function flashMiss(){
     sheetState.mistakes++;
     sheetState.streak = 0;
+    var nowChip = document.querySelector("#upcomingRow .key-chip.now");
+    if(nowChip){ nowChip.classList.remove("miss"); void nowChip.offsetWidth; nowChip.classList.add("miss");
+      setTimeout(function(){ nowChip.classList.remove("miss"); }, 300); }
     var pressNow = document.getElementById("pressNow");
     pressNow.classList.add("miss");
     setTimeout(function(){ pressNow.classList.remove("miss"); }, 180);
@@ -1873,19 +2042,93 @@
     if(!sheetState.song || sheetState.demoPlaying) return;
     var seq = SONGS[sheetState.song];
     if(sheetState.cursor >= seq.length) return;
-    if(hold) return; // already holding the current note
     var note = seq[sheetState.cursor];
     if(sameNote(note.k, key)){
-      if(isEasy()){ advanceNote(); return; }   // Easy mode: no timing, just the right key
-      hold = { key:key, start:performance.now(), need:note.b * beatMs(), raf:null };
-      setHint(note.b < 1 ? "" : "Keep holding…", false);
-      hold.raf = requestAnimationFrame(tickHold);
+      var now = performance.now();
+      if(!sheetState.firstAt) sheetState.firstAt = now;
+      sheetState.lastAt = now;
+      // Every note gets its full length. If you type the next letter before
+      // the current note is done, the new note waits its turn and starts the
+      // moment the previous one ends, so typing fast never cuts a note short.
+      followSpeed(now, note.b);
+      var need = note.b * beatMs();
+      var start = Math.max(now, songNextFree);
+      songNextFree = start + need;
+      if(start - now > 15){
+        songQueue.push(setTimeout(function(){ startSongNote(key, need); }, start - now));
+      } else {
+        startSongNote(key, need);
+      }
+      if(!isEasy() && note.b >= 1) sheetState.timed++;
+      advanceNote();
     } else {
       flashMiss();
     }
   }
+  var ringing = {};   // key -> the note it just played (for gentle hold-length scoring)
+  var songNextFree = 0; // when the last song note (played or waiting) will end
+  var songQueue = [];   // timers for notes typed ahead, waiting their turn
+  function startSongNote(key, need){
+    if(voices[key]) releaseVoice(key, voices[key]);
+    noteOn(key);
+    var v = voices[key];
+    if(!v) return;
+    // A hair of overlap into the next note, like a pianist playing legato.
+    var len = need + LEGATO_MS;
+    v.ringUntil = performance.now() + len;
+    setTimeout(function(){ if(voices[key] === v) releaseVoice(key, v); }, len);
+  }
+  var LEGATO_MS = 45;
+  // Follow my speed: each right note tells us how long this player takes per
+  // beat. Blend that gently into the tempo so the song settles at their pace
+  // and keeps a steady, even rhythm instead of jumping around.
+  var lastPress = null; // {t, beats}
+  function followSpeed(now, beats){
+    var box = document.getElementById("followMode");
+    if(lastPress && box && box.checked){
+      var gap = now - lastPress.t;
+      var perBeat = gap / lastPress.beats;
+      var cur = beatMs();
+      // Ignore pauses and accidental double-taps; they aren't the player's pace.
+      if(perBeat > cur * 0.4 && perBeat < cur * 2.5){
+        var next = cur * 0.85 + perBeat * 0.15;
+        setBpm(60000 / next);
+      }
+    }
+    lastPress = { t: now, beats: beats };
+  }
+  function clearSongQueue(){
+    songQueue.forEach(clearTimeout);
+    songQueue = [];
+    songNextFree = 0;
+    lastPress = null;
+  }
+  function expectsKey(key){
+    if(!sheetState.song || sheetState.demoPlaying) return false;
+    var seq = SONGS[sheetState.song];
+    return sheetState.cursor < seq.length && sameNote(seq[sheetState.cursor].k, key);
+  }
+  // A key press: the song's next note is played (on time) by the practice
+  // handler; any other key just sounds right away like a normal piano.
+  function pressKey(key){
+    if(expectsKey(key)){ handlePracticeKey(key); return; }
+    if(voices[key]) releaseVoice(key, voices[key]);
+    noteOn(key);
+    handlePracticeKey(key);
+  }
 
   function handlePracticeRelease(key){
+    // Typing mode: letting go early never blocks you — it just counts toward
+    // the "held right" score, and a gentle tip shows now and then.
+    var r = ringing[key];
+    if(r && !r.counted){
+      r.counted = true;
+      var held = performance.now() - r.start;
+      if(r.need >= 500){
+        if(held >= r.need * 0.6) sheetState.held++;
+        // (no "hold longer" tip: notes now ring their full length on their own)
+      }
+    }
     if(!hold || !sameNote(hold.key, key)) return;
     var elapsed = performance.now() - hold.start;
     // Short notes get a generous window, since a fast tap is ~100ms anyway.
@@ -1905,6 +2148,24 @@
     }
   }
 
+  var lastTip = 0;
+  function tipShort(){
+    var now = performance.now();
+    if(now - lastTip < 4000) return;
+    lastTip = now;
+    setHint("Tip: hold keys with ●● a bit longer — they ring for 2 counts", true);
+    setTimeout(function(){ if(sheetState.song && !sheetState.finished) renderSheetHintOnly(); }, 2200);
+  }
+  function renderSheetHintOnly(){
+    var seq = SONGS[sheetState.song]; if(!seq) return;
+    var cur = seq[sheetState.cursor]; if(!cur) return;
+    setHint(isEasy() ? (IS_TOUCH ? "Tap" : "Press") + " the glowing key!" : typeHint(), false);
+  }
+  function typeHint(){
+    return IS_TOUCH ? "Tap through the notes like typing — keys with ●● ring longer"
+                    : "Type the letters like a sentence — keys with ●● ring longer";
+  }
+
   function animateDemoFill(ms){
     var start = performance.now();
     function frame(){
@@ -1917,6 +2178,7 @@
   }
 
   function stopDemo(){
+    clearSongQueue();
     var wasPlaying = sheetState.demoPlaying;
     sheetState.demoPlaying = false;
     if(sheetState.demoTimer) clearTimeout(sheetState.demoTimer);
@@ -1971,6 +2233,90 @@
   });
   updateBeatTimes();
 
+  // ---- Speed test: learn how fast this person types, set the tempo to match --
+  // Each letter in the test counts as one beat, so the steady time between
+  // presses becomes the beat length every song note rings for.
+  var bpmInput = document.getElementById("bpm");
+  function setBpm(v){
+    v = Math.max(+bpmInput.min, Math.min(+bpmInput.max, Math.round(v)));
+    bpmInput.value = v;
+    bpmInput.dispatchEvent(new Event("input"));
+  }
+  bpmInput.addEventListener("change", function(){ store("kiano.bpm", bpmInput.value); });
+  if(store("kiano.bpm")) setBpm(parseFloat(store("kiano.bpm")));
+
+  var SPEED_KEYS = ["z","x","c","v","b","n","m",",",".","/","m","b","c","z"];
+  var speed = null; // {i, times}
+  var speedBox = document.getElementById("speedTest");
+  function speedOpen(){ return !speedBox.classList.contains("hidden"); }
+  function renderSpeed(){
+    var row = document.getElementById("speedRow");
+    row.innerHTML = "";
+    SPEED_KEYS.forEach(function(k, i){
+      var sp = document.createElement("span");
+      sp.textContent = k;
+      if(i < speed.i) sp.className = "ok";
+      else if(i === speed.i) sp.className = "now";
+      row.appendChild(sp);
+    });
+  }
+  function startSpeedTest(){
+    stopDemo(); cancelHold(); releaseEverything();
+    speed = { i:0, times:[] };
+    document.getElementById("speedResult").hidden = true;
+    document.getElementById("speedAgain").hidden = true;
+    document.getElementById("speedClose").textContent = "Cancel";
+    document.getElementById("speedRow").hidden = false;
+    renderSpeed();
+    speedBox.classList.remove("hidden");
+  }
+  function finishSpeedTest(){
+    var gaps = [];
+    for(var i=1;i<speed.times.length;i++) gaps.push(speed.times[i] - speed.times[i-1]);
+    gaps.sort(function(a,b){ return a-b; });
+    var mid = gaps[Math.floor(gaps.length/2)];
+    var bpm = 60000 / mid;
+    setBpm(bpm);
+    store("kiano.bpm", bpmInput.value);
+    var perSec = (1000/mid).toFixed(1);
+    var res = document.getElementById("speedResult");
+    res.textContent = "About " + perSec + " keys a second. Tempo set to " + bpmInput.value + " BPM.";
+    if(bpm > +bpmInput.max) res.textContent += " (That's the fastest Kiano goes!)";
+    if(bpm < +bpmInput.min) res.textContent += " (That's the slowest Kiano goes.)";
+    res.hidden = false;
+    document.getElementById("speedRow").hidden = true;
+    document.getElementById("speedAgain").hidden = false;
+    document.getElementById("speedClose").textContent = "Done";
+    speed = null;
+  }
+  window.addEventListener("keydown", function(e){
+    if(!speedOpen()) return;
+    e.stopImmediatePropagation();
+    if(e.key === "Escape"){ speedBox.classList.add("hidden"); speed = null; return; }
+    if(e.metaKey || e.ctrlKey || e.altKey || e.repeat || !speed) return;
+    var key = eventKey(e);
+    if(!key) return;
+    e.preventDefault();
+    if(!started) firstGesture();
+    if(voices[key]) releaseVoice(key, voices[key]);
+    noteOn(key);
+    setTimeout(function(){ if(voices[key]) releaseVoice(key, voices[key]); }, 180);
+    var row = document.getElementById("speedRow");
+    if(sameNote(SPEED_KEYS[speed.i], key)){
+      speed.times.push(performance.now());
+      speed.i++;
+      row.classList.remove("miss");
+      if(speed.i >= SPEED_KEYS.length){ finishSpeedTest(); return; }
+      renderSpeed();
+    } else {
+      row.classList.add("miss");
+    }
+  }, true);
+  window.addEventListener("keyup", function(e){ if(speedOpen()) e.stopImmediatePropagation(); }, true);
+  document.getElementById("speedBtn").addEventListener("click", function(e){ e.currentTarget.blur(); startSpeedTest(); });
+  document.getElementById("speedAgain").addEventListener("click", startSpeedTest);
+  document.getElementById("speedClose").addEventListener("click", function(){ speedBox.classList.add("hidden"); speed = null; });
+
   document.getElementById("songSelect").addEventListener("change", function(e){
     stopDemo();
     cancelHold();
@@ -2011,6 +2357,7 @@
 
   // Stop every sounding note (used when keys could have been released unseen).
   function releaseEverything(){
+    clearSongQueue();
     spaceHeld = false;
     downByCode = {};
     Object.keys(pressedKeys).forEach(function(k){ pressedKeys[k] = false; });
@@ -2037,8 +2384,7 @@
     if(!started) firstGesture();
     if(e.code) downByCode[e.code] = key;
     pressedKeys[key] = true;
-    noteOn(key);
-    handlePracticeKey(key);
+    pressKey(key);
   });
 
   window.addEventListener("keyup", function(e){
@@ -2065,8 +2411,11 @@
   // demo) gets released within half a second, whatever went wrong.
   setInterval(function(){
     if(!ctx || sheetState.demoPlaying || sustainActive()) return;
+    var t = performance.now();
     Object.keys(voices).forEach(function(k){
-      if(!pressedKeys[k]) releaseVoice(k, voices[k]);
+      var v = voices[k];
+      if(v.ringUntil && t < v.ringUntil + 100) return; // a song note still ringing out
+      if(!pressedKeys[k]) releaseVoice(k, v);
     });
   }, 500);
 
@@ -2187,6 +2536,8 @@
     var acc = seq.length / (seq.length + sheetState.mistakes);
     var easy = isEasy();
     var stars = acc >= (easy ? 0.8 : 0.92) ? 3 : acc >= (easy ? 0.55 : 0.75) ? 2 : 1;
+    var mins = (sheetState.lastAt - sheetState.firstAt) / 60000;
+    var npm = mins > 0.05 ? Math.round((seq.length - 1) / mins) : 0;
     var bestKey = "kiano.best." + sheetState.song + (easy ? ".easy" : "");
     var best = parseInt(store(bestKey) || "0", 10);
     if(stars > best) store(bestKey, String(stars));
@@ -2194,11 +2545,14 @@
     document.getElementById("celeTitle").textContent =
       stars === 3 ? "Perfect! 🎉" : stars === 2 ? "Great job!" : "You did it!";
     var oops = sheetState.mistakes;
+    var stats = Math.round(acc * 100) + "% accuracy" + (npm ? " · " + npm + " notes/min" : "") +
+      (!easy && sheetState.timed ? " · long notes held " + Math.round(100 * sheetState.held / sheetState.timed) + "%" : "");
     document.getElementById("celeMsg").textContent =
       "You played " + songTitle(sheetState.song) + " — " + seq.length + " notes" +
-      (oops ? ", with " + oops + (oops === 1 ? " slip." : " slips.") : " with no slips!") +
+      (oops ? ", " + oops + (oops === 1 ? " slip." : " slips.") : ", no slips!") +
       (stars < 3 ? " Play again for more stars." : "") +
       (best && stars <= best ? " Your best: " + "★".repeat(best) : (stars > best && best ? " New best!" : ""));
+    document.getElementById("celeStats").textContent = stats;
     var spans = document.querySelectorAll("#celeStars span");
     spans.forEach(function(sp){ sp.className = ""; });
     document.getElementById("celebrate").classList.remove("hidden");
@@ -2241,6 +2595,9 @@
     store("kiano.easy", easyBox.checked ? "1" : "0");
     cancelHold(); applyToggles(); if(sheetState.song) renderSheet();
   });
+  var followBox = document.getElementById("followMode");
+  if(store("kiano.follow") === "0") followBox.checked = false;
+  followBox.addEventListener("change", function(){ store("kiano.follow", followBox.checked ? "1" : "0"); });
   rainbowBox.addEventListener("change", function(){
     store("kiano.rainbow", rainbowBox.checked ? "1" : "0"); applyToggles();
   });
