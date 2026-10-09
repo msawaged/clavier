@@ -639,6 +639,10 @@
     .rhythm-key{ font-size:12px !important; gap:6px; padding:8px; }
     .rhythm-key .lg{ padding:5px 9px 5px 6px; }
   }
+
+  .legend-wrap{ margin:0 20px 12px; }
+  .legend-wrap .rhythm-key{ margin-top:0; }
+  @media (max-width:640px){ .legend-wrap{ margin:0 10px 10px; } }
   /* ---------- phones ---------- */
   @media (max-width:640px){
     header{ padding:16px 12px 8px; gap:12px; }
@@ -767,6 +771,16 @@
     </div>
     <div class="track-picker" id="trackPicker" hidden></div>
   </div>
+  <div class="legend-wrap">
+    <div class="rhythm-key" aria-label="Frame color shows how long to hold">
+      <b class="legend-title" id="legendTitle">Pick a song — the box color around each letter tells you how long to hold:</b>
+      <span class="lg len-tap"><i></i><b>Green</b> quick tap <em class="secs" data-beats="0.5"></em></span>
+      <span class="lg len-1"><i></i><b>Blue</b> 1 beat <em class="secs" data-beats="1"></em></span>
+      <span class="lg len-2"><i></i><b>Orange</b> 2 beats <em class="secs" data-beats="2"></em></span>
+      <span class="lg len-long"><i></i><b>Pink</b> long hold <em class="secs" data-beats="3,4"></em></span>
+      <span class="beat-note" id="beatNote"></span>
+    </div>
+  </div>
   <div class="stand-area">
     <div class="music-stand">
       <div class="staff-wrap empty" id="staffWrap">
@@ -781,14 +795,6 @@
           <div class="upcoming-row" id="upcomingRow"></div>
         </div>
         <div class="hold-hint" id="holdHint"></div>
-        <div class="rhythm-key" aria-label="Frame color shows how long to hold">
-          <b class="legend-title">Box color = how long to hold the key</b>
-          <span class="lg len-tap"><i></i><b>Green</b> quick tap <em class="secs" data-beats="0.5"></em></span>
-          <span class="lg len-1"><i></i><b>Blue</b> 1 beat <em class="secs" data-beats="1"></em></span>
-          <span class="lg len-2"><i></i><b>Orange</b> 2 beats <em class="secs" data-beats="2"></em></span>
-          <span class="lg len-long"><i></i><b>Pink</b> long hold <em class="secs" data-beats="3,4"></em></span>
-          <span class="beat-note" id="beatNote"></span>
-        </div>
       </div>
     </div>
     <div class="piano-nav" id="pianoNav" hidden>
@@ -1591,6 +1597,9 @@
     var wrap = document.getElementById("staffWrap");
     var pressNow = document.getElementById("pressNow");
     var upcoming = document.getElementById("upcomingRow");
+    document.getElementById("legendTitle").textContent = sheetState.song
+      ? "Box color = how long to hold the key"
+      : "Pick a song — the box color around each letter tells you how long to hold:";
     if(!sheetState.song){
       wrap.classList.add("empty");
       document.getElementById("sheetStatus").textContent = "Pick a song to learn it";
