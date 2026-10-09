@@ -734,6 +734,9 @@
     background:currentColor; animation:caret 1s steps(2) infinite; opacity:1;
   }
   @keyframes caret{ 50%{ opacity:.25; } }
+  /* click any note on the page to start from there */
+  .key-chip{ cursor:pointer; }
+  .key-chip:hover:not(.now){ opacity:1 !important; box-shadow:0 0 0 2px var(--brass-dim); }
   .key-chip.miss{ animation:shake .25s; box-shadow:0 0 0 2px #c0564a !important; }
   @keyframes shake{ 25%{ transform:translateX(-3px) scale(1.12);} 75%{ transform:translateX(3px) scale(1.12);} }
   .cele-stats{ font-family:var(--font-mono); font-size:12px; color:var(--brass); letter-spacing:.02em; }
@@ -1865,6 +1868,7 @@
       seq.forEach(function(note, i){
         var chip = makeChip(note, false);
         chip.dataset.i = i;
+        chip.title = "Click to start from here — " + chip.title;
         // A long note usually ends a musical phrase: leave a "word space" after it.
         if(note.b >= 1.5 || i === seq.length - 1) chip.classList.add("phrase-end");
         page.appendChild(chip);
@@ -1896,6 +1900,26 @@
       page.scrollTop = page.scrollHeight;
     }
   }
+
+  // Made a mistake? Click any note on the page to pick up from that spot.
+  function jumpTo(i){
+    if(!sheetState.song) return;
+    var seq = SONGS[sheetState.song];
+    i = Math.max(0, Math.min(seq.length - 1, i));
+    if(sheetState.demoPlaying) stopDemo();
+    cancelHold();
+    releaseEverything();
+    sheetState.cursor = i;
+    sheetState.streak = 0;
+    sheetState.finished = false;
+    renderSheet();
+    setHint("Starting from note " + (i + 1) + " — " + (IS_TOUCH ? "tap " : "press ") + displayKey(seq[i].k), false);
+  }
+  document.getElementById("upcomingRow").addEventListener("click", function(e){
+    var chip = e.target.closest(".key-chip");
+    if(!chip || chip.dataset.i === undefined) return;
+    jumpTo(parseInt(chip.dataset.i, 10));
+  });
 
   function clearExpected(){
     Object.keys(letterToEl).forEach(function(k){ letterToEl[k].classList.remove("expected"); });
@@ -2052,13 +2076,14 @@
       // moment the previous one ends, so typing fast never cuts a note short.
       followSpeed(now, note.b);
       var need = note.b * beatMs();
-      var start = Math.max(now, songNextFree);
-      songNextFree = start + need;
-      if(start - now > 15){
-        songQueue.push(setTimeout(function(){ startSongNote(key, need); }, start - now));
-      } else {
-        startSongNote(key, need);
-      }
+      // Scheduled on the audio clock (sample-accurate), not a page timer, so
+      // the rhythm stays exact even if the page is busy.
+      ensureAudio();
+      if(ctx.state !== "running") ctx.resume();
+      var t = ctx.currentTime;
+      var at = Math.max(t, songNextFree);
+      songNextFree = at + need / 1000;
+      playSongNote(key, at, need + LEGATO_MS);
       if(!isEasy() && note.b >= 1) sheetState.timed++;
       advanceNote();
     } else {
@@ -2066,17 +2091,54 @@
     }
   }
   var ringing = {};   // key -> the note it just played (for gentle hold-length scoring)
-  var songNextFree = 0; // when the last song note (played or waiting) will end
-  var songQueue = [];   // timers for notes typed ahead, waiting their turn
-  function startSongNote(key, need){
-    if(voices[key]) releaseVoice(key, voices[key]);
-    noteOn(key);
-    var v = voices[key];
-    if(!v) return;
-    // A hair of overlap into the next note, like a pianist playing legato.
-    var len = need + LEGATO_MS;
-    v.ringUntil = performance.now() + len;
-    setTimeout(function(){ if(voices[key] === v) releaseVoice(key, v); }, len);
+  var songNextFree = 0; // audio-clock time when the last song note (played or waiting) ends
+  var songVoices = [];  // song notes playing or scheduled to play
+  var litCount = {};    // how many song notes are lighting each piano key
+  function lightKey(midi, on){
+    litCount[midi] = Math.max(0, (litCount[midi] || 0) + (on ? 1 : -1));
+    updateKeyVisual(midi, litCount[midi] > 0);
+  }
+  // Play one song note starting at audio time `at`, for exactly `lenMs`.
+  // Start, length and fade-out are all set on the audio clock up front, so a
+  // note can never be cut short or start late because of typing speed.
+  function playSongNote(key, at, lenMs){
+    var midi = keyToMidi(key);
+    if(midi === null) return;
+    var preset = SOUNDS[document.getElementById("sound").value] || SOUNDS.piano;
+    var freq = midiToFreq(midi + (preset.shift || 0));
+    var rel = preset.release || 0.18;
+    var gate = ctx.createGain();
+    gate.connect(masterGain);
+    var gain = ctx.createGain();
+    gain.connect(gate);
+    var oscs = preset.build(freq, at, gain);
+    var end = at + lenMs / 1000;
+    gate.gain.setValueAtTime(1, at);
+    gate.gain.setValueAtTime(1, end);
+    gate.gain.exponentialRampToValueAtTime(0.0001, end + rel);
+    oscs.forEach(function(o){ o.stop(end + rel + 0.02); });
+    var sv = { gate: gate, midi: midi, lit: false, timers: [] };
+    songVoices.push(sv);
+    var delayMs = Math.max(0, (at - ctx.currentTime) * 1000);
+    sv.timers.push(setTimeout(function(){ sv.lit = true; lightKey(midi, true); spawnFloat(midi); }, delayMs));
+    sv.timers.push(setTimeout(function(){
+      if(sv.lit){ sv.lit = false; lightKey(midi, false); }
+      var k = songVoices.indexOf(sv); if(k >= 0) songVoices.splice(k, 1);
+    }, delayMs + lenMs));
+  }
+  function silenceSongVoices(){
+    var now = ctx ? ctx.currentTime : 0;
+    songVoices.forEach(function(sv){
+      sv.timers.forEach(clearTimeout);
+      if(sv.lit) lightKey(sv.midi, false);
+      try{
+        var g = sv.gate.gain;
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(Math.max(g.value, 0.0001), now);
+        g.exponentialRampToValueAtTime(0.0001, now + 0.05);
+      }catch(e){}
+    });
+    songVoices = [];
   }
   var LEGATO_MS = 45;
   // Follow my speed: each right note tells us how long this player takes per
@@ -2098,8 +2160,7 @@
     lastPress = { t: now, beats: beats };
   }
   function clearSongQueue(){
-    songQueue.forEach(clearTimeout);
-    songQueue = [];
+    silenceSongVoices();
     songNextFree = 0;
     lastPress = null;
   }
@@ -2545,8 +2606,7 @@
     document.getElementById("celeTitle").textContent =
       stars === 3 ? "Perfect! 🎉" : stars === 2 ? "Great job!" : "You did it!";
     var oops = sheetState.mistakes;
-    var stats = Math.round(acc * 100) + "% accuracy" + (npm ? " · " + npm + " notes/min" : "") +
-      (!easy && sheetState.timed ? " · long notes held " + Math.round(100 * sheetState.held / sheetState.timed) + "%" : "");
+    var stats = Math.round(acc * 100) + "% accuracy" + (npm ? " · " + npm + " notes/min" : "");
     document.getElementById("celeMsg").textContent =
       "You played " + songTitle(sheetState.song) + " — " + seq.length + " notes" +
       (oops ? ", " + oops + (oops === 1 ? " slip." : " slips.") : ", no slips!") +
