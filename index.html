@@ -610,6 +610,35 @@
     .rhythm-key{ display:flex !important; gap:8px 12px; font-size:10px; }
     body.easy .rhythm-key{ display:none !important; }
   }
+
+  /* ---- big, readable hold-length legend ---- */
+  .rhythm-key{
+    display:flex !important; flex-wrap:wrap; gap:8px; align-items:center;
+    margin-top:4px; padding:10px 12px; border-radius:10px;
+    background:color-mix(in srgb, var(--bg) 70%, transparent);
+    border:1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+    font-family:var(--font-mono); font-size:13px !important; color:var(--ink) !important; letter-spacing:0;
+  }
+  .rhythm-key .legend-title{
+    flex-basis:100%; font-family:var(--font-display); font-weight:600; font-size:16px; color:var(--ink); margin-bottom:2px;
+  }
+  .rhythm-key .lg{
+    display:inline-flex; align-items:center; gap:7px; padding:6px 11px 6px 7px; border-radius:999px;
+    border:2px solid var(--c); background:color-mix(in srgb, var(--c) 14%, transparent); color:var(--ink);
+  }
+  .rhythm-key .lg i{ width:16px !important; height:16px !important; border-radius:50% !important; border:0 !important; background:var(--c) !important; display:inline-block; }
+  .rhythm-key .lg b{ color:var(--c); font-weight:700; }
+  .rhythm-key .lg.len-tap{ --c:var(--len-tap); }
+  .rhythm-key .lg.len-1{ --c:var(--len-1); }
+  .rhythm-key .lg.len-2{ --c:var(--len-2); }
+  .rhythm-key .lg.len-long{ --c:var(--len-long); }
+  .rhythm-key .secs{ opacity:.8; }
+  .rhythm-key .beat-note{ font-size:13px; margin-top:2px; }
+  body.easy .rhythm-key{ display:none !important; }
+  @media (max-width:640px){
+    .rhythm-key{ font-size:12px !important; gap:6px; padding:8px; }
+    .rhythm-key .lg{ padding:5px 9px 5px 6px; }
+  }
   /* ---------- phones ---------- */
   @media (max-width:640px){
     header{ padding:16px 12px 8px; gap:12px; }
@@ -753,11 +782,11 @@
         </div>
         <div class="hold-hint" id="holdHint"></div>
         <div class="rhythm-key" aria-label="Frame color shows how long to hold">
-          <b class="legend-title">Frame color = how long to hold:</b>
-          <span><i class="len-tap"></i>Quick tap <em class="secs" data-beats="0.5"></em></span>
-          <span><i class="len-1"></i>1 beat <em class="secs" data-beats="1"></em></span>
-          <span><i class="len-2"></i>2 beats <em class="secs" data-beats="2"></em></span>
-          <span><i class="len-long"></i>Long hold <em class="secs" data-beats="3,4"></em></span>
+          <b class="legend-title">Box color = how long to hold the key</b>
+          <span class="lg len-tap"><i></i><b>Green</b> quick tap <em class="secs" data-beats="0.5"></em></span>
+          <span class="lg len-1"><i></i><b>Blue</b> 1 beat <em class="secs" data-beats="1"></em></span>
+          <span class="lg len-2"><i></i><b>Orange</b> 2 beats <em class="secs" data-beats="2"></em></span>
+          <span class="lg len-long"><i></i><b>Pink</b> long hold <em class="secs" data-beats="3,4"></em></span>
           <span class="beat-note" id="beatNote"></span>
         </div>
       </div>
