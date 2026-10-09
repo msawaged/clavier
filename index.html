@@ -591,7 +591,6 @@
   .press-now.short{ box-shadow:0 0 0 4px #d08a2e !important; }
   .press-now.done{ box-shadow:none !important; }
   .press-now .pn-beats{ color:var(--lc-text, #6b5d3e); font-weight:700; }
-  .rhythm-key i{ width:22px !important; height:14px; border-radius:4px; border-width:2px !important; border-style:solid; background:transparent; }
   .rhythm-key i.len-tap{ border-color:var(--len-tap) !important; }
   .rhythm-key i.len-1{ border-color:var(--len-1) !important; }
   .rhythm-key i.len-2{ border-color:var(--len-2) !important; }
@@ -626,7 +625,6 @@
     display:inline-flex; align-items:center; gap:7px; padding:6px 11px 6px 7px; border-radius:999px;
     border:2px solid var(--c); background:color-mix(in srgb, var(--c) 14%, transparent); color:var(--ink);
   }
-  .rhythm-key .lg i{ width:16px !important; height:16px !important; border-radius:50% !important; border:0 !important; background:var(--c) !important; display:inline-block; }
   .rhythm-key .lg b{ color:var(--c); font-weight:700; }
   .rhythm-key .lg.len-tap{ --c:var(--len-tap); }
   .rhythm-key .lg.len-1{ --c:var(--len-1); }
@@ -660,6 +658,34 @@
   .song-help li{ margin:3px 0; }
   .song-help a{ color:var(--brass); }
   .song-help .fine{ color:var(--ink-dim); font-size:12px; margin:0; }
+
+  /* ---- count dots ---- */
+  .dots{ display:inline-flex; gap:4px; align-items:center; justify-content:center; }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--c, var(--brass)); display:inline-block; opacity:.9; }
+  .dot.half{ width:5px; height:5px; }
+  .key-chip{ flex-direction:column; gap:3px; height:44px !important; }
+  .key-chip .chip-letter{ line-height:1; }
+  .key-chip .dots .dot{ background:currentColor; }
+  .key-chip.len-tap{ color:var(--len-tap); } .key-chip.len-1{ color:var(--len-1); }
+  .key-chip.len-2{ color:var(--len-2); } .key-chip.len-long{ color:var(--len-long); }
+  .key-chip .chip-letter{ color:var(--ink); opacity:.85; }
+  .key-chip::after{ display:none; }
+  #pnBeats .dots.big{ gap:5px; margin-top:6px; }
+  #pnBeats .dot{ width:11px; height:11px; background:transparent; border:2px solid var(--lc, var(--brass)); box-sizing:border-box; opacity:1; transition:background .08s, transform .08s; }
+  #pnBeats .dot.half{ width:9px; height:9px; }
+  #pnBeats .dot.lit{ background:var(--lc, var(--brass)); transform:scale(1.15); }
+  .press-now .pn-fill{ opacity:.35; }
+  .rhythm-key .lg{ gap:8px; }
+  .rhythm-key .lg .dots .dot{ background:var(--c); }
+  .rhythm-key .lg .dot{ width:9px; height:9px; border-radius:50%; border:0; display:inline-block; background:var(--c); }
+  .rhythm-key .lg .dot.half{ width:6px; height:6px; }
+  body.easy .key-chip .dots, body.easy #pnBeats .dots{ display:none; }
+  body.easy .key-chip{ height:40px !important; }
+  @media (max-width:640px){
+    .press-now{ width:72px !important; height:72px !important; }
+    #pnBeats .dot{ width:9px; height:9px; }
+    .key-chip{ height:42px !important; }
+  }
   /* ---------- phones ---------- */
   @media (max-width:640px){
     header{ padding:16px 12px 8px; gap:12px; }
@@ -802,13 +828,13 @@
     <div class="track-picker" id="trackPicker" hidden></div>
   </div>
   <div class="legend-wrap">
-    <div class="rhythm-key" aria-label="Frame color shows how long to hold">
-      <b class="legend-title" id="legendTitle">Pick a song — the box color around each letter tells you how long to hold:</b>
-      <span class="lg len-tap"><i></i><b>Green</b> quick tap <em class="secs" data-beats="0.5"></em></span>
-      <span class="lg len-1"><i></i><b>Blue</b> 1 beat <em class="secs" data-beats="1"></em></span>
-      <span class="lg len-2"><i></i><b>Orange</b> 2 beats <em class="secs" data-beats="2"></em></span>
-      <span class="lg len-long"><i></i><b>Pink</b> long hold <em class="secs" data-beats="3,4"></em></span>
-      <span class="beat-note" id="beatNote"></span>
+    <div class="rhythm-key" aria-label="Dots show how long to hold each key">
+      <b class="legend-title" id="legendTitle">Count the dots: hold the key while its dots light up</b>
+      <span class="lg len-tap"><span class="dots"><i class="dot half"></i></span>quick tap</span>
+      <span class="lg len-1"><span class="dots"><i class="dot"></i></span>1 count</span>
+      <span class="lg len-2"><span class="dots"><i class="dot"></i><i class="dot"></i></span>2 counts</span>
+      <span class="lg len-long"><span class="dots"><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span>3–4 counts</span>
+      <span class="beat-note" id="beatNote">When the last dot lights, the note stops by itself and the next one is ready. Too fast? Slide BPM down.</span>
     </div>
   </div>
   <div class="stand-area">
@@ -1651,8 +1677,8 @@
     var pressNow = document.getElementById("pressNow");
     var upcoming = document.getElementById("upcomingRow");
     document.getElementById("legendTitle").textContent = sheetState.song
-      ? "Box color = how long to hold the key"
-      : "Pick a song — the box color around each letter tells you how long to hold:";
+      ? "Count the dots: hold the key while its dots light up"
+      : "Pick a song — then count the dots: hold each key while its dots light up";
     if(!sheetState.song){
       wrap.classList.add("empty");
       document.getElementById("sheetStatus").textContent = "Pick a song to learn it";
@@ -1668,8 +1694,8 @@
     var cur = seq[sheetState.cursor];
     document.getElementById("pnLetter").textContent = done ? "✓" : displayKey(cur.k);
     var pnB = document.getElementById("pnBeats");
-    pnB.textContent = done ? "" : beatsLabel(cur.b, true);
-    if(!done){ var sx = document.createElement("span"); sx.className = "pn-secs"; sx.textContent = secs(cur.b).replace("s", " sec"); pnB.appendChild(sx); }
+    pnB.textContent = "";
+    if(!done) pnB.appendChild(makeDots(cur.b, true));
     pressNow.style.setProperty("--nc", done ? "" : keyColor(cur.k));
     var lc = done ? "" : lenClass(cur.b);
     pressNow.style.setProperty("--lc", lc ? "var(--" + lc + ")" : "");
@@ -1678,7 +1704,8 @@
     var verb = IS_TOUCH ? "Tap" : "Press";
     if(!done && !sheetState.demoPlaying){
       if(isEasy()) setHint(verb + " the glowing key!", false);
-      else setHint(verb + " " + displayKey(cur.k) + " and hold " + beatsPhrase(cur.b) + " — let go when the key fills", false);
+      else setHint(cur.b < 1 ? verb + " " + displayKey(cur.k) + " — just a quick tap"
+                             : verb + " and hold " + displayKey(cur.k) + " for " + countWords(cur.b) + " — it stops by itself", false);
     } else if(done){
       setHint("", false);
     }
@@ -1749,23 +1776,48 @@
   // Which color family a note length belongs to.
   function lenClass(b){ return b <= 0.5 ? "len-tap" : b <= 1 ? "len-1" : b <= 2 ? "len-2" : "len-long"; }
   var LEN_TEXT = { "len-tap":"#2f8a46", "len-1":"#1f6fb5", "len-2":"#b06d10", "len-long":"#b22d48" };
+  // How many dots a note gets: a short note is one small dot, otherwise one
+  // dot per count (rounded), so a 2-beat note shows two dots.
+  function dotCount(b){ return b < 1 ? 1 : Math.max(1, Math.round(b)); }
+  function makeDots(b, big){
+    var wrap = document.createElement("span");
+    wrap.className = "dots" + (big ? " big" : "");
+    var n = dotCount(b);
+    for(var i=0;i<n;i++){
+      var d = document.createElement("i");
+      d.className = "dot" + (b < 1 ? " half" : "");
+      wrap.appendChild(d);
+    }
+    return wrap;
+  }
+  function countWords(b){
+    if(b < 1) return "a quick tap";
+    var n = dotCount(b);
+    return n + (n === 1 ? " count" : " counts");
+  }
   function makeChip(note, played){
     var chip = document.createElement("div");
     chip.className = "key-chip " + lenClass(note.b) + (played ? " played" : "");
-    chip.style.width = Math.max(24, Math.round(note.b * BEAT_PX)) + "px";
-    chip.style.setProperty("--beat-px", BEAT_PX + "px");
-    chip.title = displayKey(note.k) + " — hold " + beatsLabel(note.b, true);
+    chip.style.width = Math.max(34, 22 + dotCount(note.b) * 12) + "px";
+    chip.title = displayKey(note.k) + " — " + countWords(note.b);
     chip.style.setProperty("--nc", keyColor(note.k));
     var letter = document.createElement("span");
+    letter.className = "chip-letter";
     letter.textContent = displayKey(note.k);
     chip.appendChild(letter);
+    chip.appendChild(makeDots(note.b, false));
     return chip;
   }
   function beatMs(){
     return 60000 / parseFloat(document.getElementById("bpm").value);
   }
   function setFill(frac){
-    document.getElementById("pnFill").style.width = (Math.max(0, Math.min(1, frac))*100) + "%";
+    frac = Math.max(0, Math.min(1, frac));
+    var dots = document.querySelectorAll("#pnBeats .dot");
+    var lit = frac >= 1 ? dots.length : Math.floor(frac * dots.length + 0.0001);
+    if(dots.length === 1 && frac > 0.05) lit = 1;
+    for(var i=0;i<dots.length;i++) dots[i].classList.toggle("lit", i < lit);
+    document.getElementById("pnFill").style.width = (frac*100) + "%";
   }
   function setHint(text, warn){
     var h = document.getElementById("holdHint");
@@ -1807,7 +1859,13 @@
     if(!hold) return;
     var frac = (performance.now() - hold.start) / hold.need;
     setFill(frac);
-    if(frac >= 1){ completeHold(); return; }
+    if(frac >= 1){
+      // Time's up: cut this note now (even if the key is still down) and move on.
+      var k = hold.key;
+      if(voices[k]) releaseVoice(k, voices[k]);
+      completeHold();
+      return;
+    }
     hold.raf = requestAnimationFrame(tickHold);
   }
 
@@ -1820,7 +1878,7 @@
     if(sameNote(note.k, key)){
       if(isEasy()){ advanceNote(); return; }   // Easy mode: no timing, just the right key
       hold = { key:key, start:performance.now(), need:note.b * beatMs(), raf:null };
-      setHint("Holding… let go when the key fills", false);
+      setHint(note.b < 1 ? "" : "Keep holding…", false);
       hold.raf = requestAnimationFrame(tickHold);
     } else {
       flashMiss();
@@ -1843,7 +1901,7 @@
       var pressNow = document.getElementById("pressNow");
       pressNow.classList.add("short");
       setTimeout(function(){ pressNow.classList.remove("short"); }, 300);
-      setHint("A little longer — hold " + displayKey(note.k) + " " + beatsPhrase(note.b) + ". Try again.", true);
+      setHint("Hold a little longer — wait for " + (dotCount(note.b) > 1 ? "all " + dotCount(note.b) + " dots" : "the dot") + " to light. Try again.", true);
     }
   }
 
@@ -1905,13 +1963,6 @@
     return (t < 10 ? t.toFixed(1) : Math.round(t)) + "s";
   }
   function updateBeatTimes(){
-    document.querySelectorAll(".rhythm-key .secs").forEach(function(el){
-      var b = el.dataset.beats.split(",").map(parseFloat);
-      el.textContent = "(" + b.map(function(x){ return secs(x).replace("s",""); }).join("–") + "s)";
-    });
-    var bpm = document.getElementById("bpm").value;
-    document.getElementById("beatNote").textContent =
-      "At " + bpm + " BPM, 1 beat = " + secs(1).replace("s", " sec") + ". Slide BPM down to make every note last longer.";
     if(sheetState.song && !sheetState.demoPlaying && !hold) renderSheet();
   }
   document.getElementById("bpm").addEventListener("input", function(e){
