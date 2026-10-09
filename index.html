@@ -522,7 +522,7 @@
   body.rainbow .bkey.active{ background:linear-gradient(to bottom, color-mix(in srgb, var(--nc) 70%, #fff), var(--nc)); }
   body.rainbow .wkey.expected{ background:linear-gradient(to bottom, var(--ivory), color-mix(in srgb, var(--nc) 30%, var(--ivory-shadow))); }
   body.rainbow .key-chip::after{ background:var(--nc, var(--brass-dim)); opacity:.9; height:3px; }
-  body.rainbow .press-now{ box-shadow:0 0 0 3px var(--nc, var(--brass)); }
+  /* frame color = how long to hold (the note's own color stays on the bar underneath) */
   body.rainbow .pn-fill{ background:linear-gradient(to bottom, color-mix(in srgb, var(--nc) 55%, #fff), var(--nc)); }
 
   /* touch devices: show note names, not keyboard letters */
@@ -577,6 +577,35 @@
   .cele-btns{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
   .start-card button.ghost{ background:transparent; color:var(--brass); border:1px solid var(--brass-dim); }
 
+
+  /* ---- hold-length colors: the frame around each letter shows how long to hold ---- */
+  :root{ --len-tap:#4cc06a; --len-1:#3d9be9; --len-2:#f0a030; --len-long:#e2506b; }
+  .key-chip.len-tap, .key-chip.len-1, .key-chip.len-2, .key-chip.len-long{ border-width:2px; opacity:.85; }
+  .key-chip.len-tap{ border-color:var(--len-tap); }
+  .key-chip.len-1{ border-color:var(--len-1); }
+  .key-chip.len-2{ border-color:var(--len-2); }
+  .key-chip.len-long{ border-color:var(--len-long); }
+  .key-chip.played{ opacity:.25; }
+  .press-now{ box-shadow:0 0 0 4px var(--lc, var(--brass)) !important; }
+  .press-now.miss{ box-shadow:0 0 0 4px #c0564a !important; }
+  .press-now.short{ box-shadow:0 0 0 4px #d08a2e !important; }
+  .press-now.done{ box-shadow:none !important; }
+  .press-now .pn-beats{ color:var(--lc-text, #6b5d3e); font-weight:700; }
+  .rhythm-key i{ width:22px !important; height:14px; border-radius:4px; border-width:2px !important; border-style:solid; background:transparent; }
+  .rhythm-key i.len-tap{ border-color:var(--len-tap) !important; }
+  .rhythm-key i.len-1{ border-color:var(--len-1) !important; }
+  .rhythm-key i.len-2{ border-color:var(--len-2) !important; }
+  .rhythm-key i.len-long{ border-color:var(--len-long) !important; }
+  .rhythm-key{ align-items:center; }
+  .legend-title{ font-weight:500; color:var(--ink); letter-spacing:.02em; }
+  @media (max-width:640px){ .legend-title{ flex-basis:100%; } }
+  /* Easy mode ignores timing, so no length colors there */
+  body.easy .key-chip{ border-color:color-mix(in srgb, var(--ink) 20%, transparent) !important; border-width:1px; }
+  body.easy .press-now{ box-shadow:0 0 0 4px var(--brass) !important; }
+  @media (max-width:640px){
+    .rhythm-key{ display:flex !important; gap:8px 12px; font-size:10px; }
+    body.easy .rhythm-key{ display:none !important; }
+  }
   /* ---------- phones ---------- */
   @media (max-width:640px){
     header{ padding:16px 12px 8px; gap:12px; }
@@ -719,11 +748,12 @@
           <div class="upcoming-row" id="upcomingRow"></div>
         </div>
         <div class="hold-hint" id="holdHint"></div>
-        <div class="rhythm-key" aria-label="How long to hold">
-          <span><i style="width:10px"></i>quick tap (½ beat)</span>
-          <span><i style="width:20px"></i>1 beat</span>
-          <span><i style="width:40px"></i>2 beats</span>
-          <span><i style="width:80px"></i>4 beats — hold until the key fills</span>
+        <div class="rhythm-key" aria-label="Frame color shows how long to hold">
+          <b class="legend-title">Frame color = how long to hold:</b>
+          <span><i class="len-tap"></i>Quick tap</span>
+          <span><i class="len-1"></i>1 beat</span>
+          <span><i class="len-2"></i>2 beats</span>
+          <span><i class="len-long"></i>Long hold (3–4 beats)</span>
         </div>
       </div>
     </div>
@@ -814,8 +844,35 @@
   var voices = {}; // physical key -> {oscs, gain, midi}
   var recDest = null; // what "Record" captures (the instrument only, not the metronome)
 
+  // iPhones mute web audio when the ring/silent switch is on. Asking for the
+  // "playback" audio session (Safari 17+), plus briefly playing a silent media
+  // element (older iOS), makes Kiano play like a music app instead.
+  var SILENT_WAV = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQQAAAAAAAAA";
+  var mediaUnlocked = false;
+  function unlockPhoneAudio(){
+    try{ if(navigator.audioSession) navigator.audioSession.type = "playback"; }catch(e){}
+    if(!mediaUnlocked){
+      mediaUnlocked = true;
+      try{
+        var a = new Audio(SILENT_WAV);
+        a.setAttribute("playsinline", "");
+        a.volume = 0.01;
+        var pr = a.play(); if(pr && pr.catch) pr.catch(function(){ mediaUnlocked = false; });
+      }catch(e){ mediaUnlocked = false; }
+    }
+    if(ctx){
+      if(ctx.state !== "running") ctx.resume();
+      // A one-sample silent buffer started inside the tap fully wakes Safari's audio.
+      try{
+        var buf = ctx.createBuffer(1, 1, 22050), src = ctx.createBufferSource();
+        src.buffer = buf; src.connect(ctx.destination); src.start(0);
+      }catch(e){}
+    }
+  }
+
   function ensureAudio(){
     if(ctx) return;
+    try{ if(navigator.audioSession) navigator.audioSession.type = "playback"; }catch(e){}
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     masterGain = ctx.createGain();
     masterGain.gain.value = parseFloat(document.getElementById("volume").value);
@@ -831,7 +888,7 @@
     if(midi === null) return;
     if(voices[key]) return; // already sounding (ignore OS autorepeat)
     ensureAudio();
-    if(ctx.state === "suspended") ctx.resume();
+    if(ctx.state !== "running") ctx.resume();
 
     var preset = SOUNDS[document.getElementById("sound").value] || SOUNDS.piano;
     var freq = midiToFreq(midi + (preset.shift || 0));
@@ -1493,6 +1550,9 @@
     document.getElementById("pnLetter").textContent = done ? "✓" : displayKey(cur.k);
     document.getElementById("pnBeats").textContent = done ? "" : beatsLabel(cur.b, true);
     pressNow.style.setProperty("--nc", done ? "" : keyColor(cur.k));
+    var lc = done ? "" : lenClass(cur.b);
+    pressNow.style.setProperty("--lc", lc ? "var(--" + lc + ")" : "");
+    pressNow.style.setProperty("--lc-text", lc ? LEN_TEXT[lc] : "");
     setFill(0);
     var verb = IS_TOUCH ? "Tap" : "Press";
     if(!done && !sheetState.demoPlaying){
@@ -1565,9 +1625,12 @@
     if(b <= 0.5) return "for a quick tap (" + beatsLabel(b, true) + ")";
     return "for " + beatsLabel(b, true);
   }
+  // Which color family a note length belongs to.
+  function lenClass(b){ return b <= 0.5 ? "len-tap" : b <= 1 ? "len-1" : b <= 2 ? "len-2" : "len-long"; }
+  var LEN_TEXT = { "len-tap":"#2f8a46", "len-1":"#1f6fb5", "len-2":"#b06d10", "len-long":"#b22d48" };
   function makeChip(note, played){
     var chip = document.createElement("div");
-    chip.className = "key-chip" + (played ? " played" : "");
+    chip.className = "key-chip " + lenClass(note.b) + (played ? " played" : "");
     chip.style.width = Math.max(24, Math.round(note.b * BEAT_PX)) + "px";
     chip.style.setProperty("--beat-px", BEAT_PX + "px");
     chip.title = displayKey(note.k) + " — hold " + beatsLabel(note.b, true);
@@ -1795,14 +1858,24 @@
   var started = false;
   function firstGesture(){
     ensureAudio();
-    if(ctx.state === "suspended") ctx.resume();
+    unlockPhoneAudio();
     if(!started){ started = true; document.getElementById("startOverlay").classList.add("hidden"); }
   }
-  window.addEventListener("pointerdown", function(){ if(ctx && ctx.state === "suspended") ctx.resume(); }, true);
+  // Every touch/click/key is a chance to (re)wake audio — phones suspend it in
+  // the background, and some only accept the unlock on touchend or click.
+  ["pointerdown", "touchend", "click", "keydown"].forEach(function(evt){
+    window.addEventListener(evt, function(){
+      if(!ctx) return;
+      if(ctx.state !== "running" || !mediaUnlocked) unlockPhoneAudio();
+    }, true);
+  });
+  document.addEventListener("visibilitychange", function(){
+    if(!document.hidden && ctx && ctx.state !== "running") ctx.resume();
+  });
   if(IS_TOUCH){
     document.body.classList.add("touch");
     document.getElementById("startMsg").textContent =
-      "Tap the piano keys to play, or pick a song and follow the glowing key. On iPhone, turn your ringer on — silent mode mutes web audio.";
+      "Tap the piano keys to play, or pick a song and follow the glowing key. Turn your volume up! If you hear nothing on iPhone, flip the silent switch off.";
     document.getElementById("tagline").textContent =
       "Tap the keys to play piano — or open this on a computer and play with your keyboard.";
     document.getElementById("sustainLabel").textContent = "Sustain";
