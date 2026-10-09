@@ -979,7 +979,7 @@
         out.gain.setValueAtTime(0, now);
         out.gain.linearRampToValueAtTime(0.9, now + 0.005);
         out.gain.exponentialRampToValueAtTime(0.4, now + 0.3);
-        out.gain.exponentialRampToValueAtTime(0.03, now + 4);
+        out.gain.exponentialRampToValueAtTime(0.0008, now + 6);
         return [a,b,c];
       }
     },
@@ -1000,7 +1000,7 @@
         out.gain.setValueAtTime(0, now);
         out.gain.linearRampToValueAtTime(0.95, now + 0.004);
         out.gain.exponentialRampToValueAtTime(0.6, now + 0.25);
-        out.gain.exponentialRampToValueAtTime(0.05, now + 3.5);
+        out.gain.exponentialRampToValueAtTime(0.0008, now + 4.5);
         return [a, click];
       }
     },
@@ -1020,7 +1020,7 @@
         out.gain.setValueAtTime(0, now);
         out.gain.linearRampToValueAtTime(0.85, now + 0.008);
         out.gain.exponentialRampToValueAtTime(0.35, now + 1.5);
-        out.gain.exponentialRampToValueAtTime(0.05, now + 5);
+        out.gain.exponentialRampToValueAtTime(0.0008, now + 6);
         return [a,b,c,lfo];
       }
     },
@@ -1196,6 +1196,27 @@
     updateExpectedHighlight();
   }
 
+  // Keys being held by a finger or mouse. If every finger lifts and a key's own
+  // "released" event got lost (it happens on some phones), let go of it anyway.
+  var pointerHeld = {}, pointersDown = {};
+  window.addEventListener("pointerdown", function(e){ pointersDown[e.pointerId] = true; }, true);
+  function pointerGone(e){
+    delete pointersDown[e.pointerId];
+    if(Object.keys(pointersDown).length) return;
+    setTimeout(function(){
+      Object.keys(pointerHeld).forEach(function(k){
+        var stillTyped = Object.keys(downByCode).some(function(c){ return downByCode[c] === k; });
+        if(pressedKeys[k] && !stillTyped){
+          pressedKeys[k] = false; noteOff(k); handlePracticeRelease(k);
+        }
+        pointerHeld[k]();
+        delete pointerHeld[k];
+      });
+    }, 0);
+  }
+  window.addEventListener("pointerup", pointerGone, true);
+  window.addEventListener("pointercancel", pointerGone, true);
+
   function attachPointer(el, keys){
     // Mouse and touch play the same voice as the key's first letter, and feed
     // the practice sheet exactly like typing does (including hold timing).
@@ -1212,6 +1233,8 @@
     }
     el.addEventListener("pointerdown", function(e){
       e.preventDefault();
+      try{ el.releasePointerCapture(e.pointerId); }catch(err){}
+      pointerHeld[k] = function(){ downIds = {}; };
       firstGesture();
       if(Object.keys(downIds).length){ downIds[e.pointerId] = true; return; }
       downIds[e.pointerId] = true;
@@ -1858,35 +1881,81 @@
   // ---- Keyboard input --------------------------------------------------
   var pressedKeys = {};
 
+  // Physical key -> Kiano key, so Shift or Caps Lock can't change what the key
+  // means between press and release (Shift+, reports "<" on release otherwise).
+  var CODE_MAP = {
+    KeyZ:"z", KeyS:"s", KeyX:"x", KeyD:"d", KeyC:"c", KeyV:"v", KeyG:"g", KeyB:"b", KeyH:"h",
+    KeyN:"n", KeyJ:"j", KeyM:"m", Comma:",", KeyL:"l", Period:".", Semicolon:";", Slash:"/",
+    KeyQ:"q", Digit2:"2", KeyW:"w", Digit3:"3", KeyE:"e", KeyR:"r", Digit5:"5", KeyT:"t", Digit6:"6",
+    KeyY:"y", Digit7:"7", KeyU:"u", KeyI:"i", Digit9:"9", KeyO:"o", Digit0:"0", KeyP:"p"
+  };
+  var downByCode = {};   // which Kiano key each physical key started
+  function eventKey(e){
+    if(e.code && CODE_MAP[e.code]) return CODE_MAP[e.code];
+    var k = (e.key || "").toLowerCase();
+    return k in BASE_MAP ? k : null;
+  }
+
+  // Stop every sounding note (used when keys could have been released unseen).
+  function releaseEverything(){
+    spaceHeld = false;
+    downByCode = {};
+    Object.keys(pressedKeys).forEach(function(k){ pressedKeys[k] = false; });
+    if(!ctx) return;
+    Object.keys(voices).forEach(function(k){ releaseVoice(k, voices[k]); });
+  }
+
   window.addEventListener("keydown", function(e){
+    if(e.key === "Escape"){ releaseEverything(); return; }
+    // Leave shortcuts (Cmd/Ctrl/Alt + key) to the browser. On a Mac, keys
+    // pressed while Cmd is down never send a "released" event, which used to
+    // leave a note ringing forever.
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
     if(e.repeat) return;
-    var key = e.key.toLowerCase();
-    if(key === " "){
+    if(e.key === " " || e.code === "Space"){
       e.preventDefault();
-      if(!spaceHeld){ spaceHeld = true; }
+      spaceHeld = true;
       return;
     }
-    if(!(key in BASE_MAP)) return;
+    var key = eventKey(e);
+    if(!key) return;
     e.preventDefault();
     if(!document.getElementById("celebrate").classList.contains("hidden")) return;
     if(!started) firstGesture();
+    if(e.code) downByCode[e.code] = key;
     pressedKeys[key] = true;
     noteOn(key);
     handlePracticeKey(key);
   });
 
   window.addEventListener("keyup", function(e){
-    var key = e.key.toLowerCase();
-    if(key === " "){
+    if(e.key === "Meta" || e.key === "OS"){ releaseEverything(); return; }
+    if(e.key === " " || e.code === "Space"){
       spaceHeld = false;
       releaseAllHeldBySustain();
       return;
     }
-    if(!(key in BASE_MAP)) return;
+    var key = (e.code && downByCode[e.code]) || eventKey(e);
+    if(e.code) delete downByCode[e.code];
+    if(!key) return;
     pressedKeys[key] = false;
     noteOff(key);
     handlePracticeRelease(key);
   });
+
+  // Switching apps/tabs, Spotlight, or the window losing focus can swallow
+  // key releases — so let go of everything then.
+  window.addEventListener("blur", releaseEverything);
+  document.addEventListener("visibilitychange", function(){ if(document.hidden) releaseEverything(); });
+
+  // Safety net: a note whose key isn't held (and isn't sustained or part of the
+  // demo) gets released within half a second, whatever went wrong.
+  setInterval(function(){
+    if(!ctx || sheetState.demoPlaying || sustainActive()) return;
+    Object.keys(voices).forEach(function(k){
+      if(!pressedKeys[k]) releaseVoice(k, voices[k]);
+    });
+  }, 500);
 
   document.getElementById("sustain").addEventListener("change", function(e){
     if(!e.target.checked) releaseAllHeldBySustain();
