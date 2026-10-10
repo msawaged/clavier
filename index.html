@@ -2093,6 +2093,7 @@
   var ringing = {};   // key -> the note it just played (for gentle hold-length scoring)
   var songNextFree = 0; // audio-clock time when the last song note (played or waiting) ends
   var songVoices = [];  // song notes playing or scheduled to play
+  var lastSongVoice = null; // the most recent song note (it hands over to the next)
   var litCount = {};    // how many song notes are lighting each piano key
   function lightKey(midi, on){
     litCount[midi] = Math.max(0, (litCount[midi] || 0) + (on ? 1 : -1));
@@ -2113,18 +2114,36 @@
     gain.connect(gate);
     var oscs = preset.build(freq, at, gain);
     var end = at + lenMs / 1000;
+    // If the player hesitates, the note keeps ringing (like a held pedal)
+    // until their next note, up to about double its length, instead of
+    // leaving dead silence. It never stops before its written length.
+    var holdUntil = end + Math.min(lenMs / 1000, 1.2);
     gate.gain.setValueAtTime(1, at);
-    gate.gain.setValueAtTime(1, end);
-    gate.gain.exponentialRampToValueAtTime(0.0001, end + rel);
-    oscs.forEach(function(o){ o.stop(end + rel + 0.02); });
-    var sv = { gate: gate, midi: midi, lit: false, timers: [] };
+    gate.gain.setValueAtTime(1, holdUntil);
+    gate.gain.exponentialRampToValueAtTime(0.0001, holdUntil + rel);
+    oscs.forEach(function(o){ o.stop(holdUntil + rel + 0.02); });
+    // The previous note hands over to this one: it stops just as this starts.
+    if(lastSongVoice && lastSongVoice.holdUntil > at + LEGATO_MS / 1000){
+      var pg = lastSongVoice.gate.gain, cut = Math.max(at + LEGATO_MS / 1000, lastSongVoice.end);
+      try{
+        pg.cancelScheduledValues(cut);
+        pg.setValueAtTime(1, cut);
+        pg.exponentialRampToValueAtTime(0.0001, cut + lastSongVoice.rel);
+      }catch(e){}
+      lastSongVoice.holdUntil = cut;
+    }
+    var sv = { gate: gate, midi: midi, lit: false, timers: [], end: end, holdUntil: holdUntil, rel: rel };
+    lastSongVoice = sv;
     songVoices.push(sv);
     var delayMs = Math.max(0, (at - ctx.currentTime) * 1000);
     sv.timers.push(setTimeout(function(){ sv.lit = true; lightKey(midi, true); spawnFloat(midi); }, delayMs));
     sv.timers.push(setTimeout(function(){
       if(sv.lit){ sv.lit = false; lightKey(midi, false); }
-      var k = songVoices.indexOf(sv); if(k >= 0) songVoices.splice(k, 1);
     }, delayMs + lenMs));
+    sv.timers.push(setTimeout(function(){
+      var k = songVoices.indexOf(sv); if(k >= 0) songVoices.splice(k, 1);
+      if(lastSongVoice === sv) lastSongVoice = null;
+    }, (holdUntil + rel - ctx.currentTime) * 1000 + 100));
   }
   function silenceSongVoices(){
     var now = ctx ? ctx.currentTime : 0;
@@ -2139,25 +2158,35 @@
       }catch(e){}
     });
     songVoices = [];
+    lastSongVoice = null;
+    recentPresses = [];
   }
   var LEGATO_MS = 45;
   // Follow my speed: each right note tells us how long this player takes per
   // beat. Blend that gently into the tempo so the song settles at their pace
   // and keeps a steady, even rhythm instead of jumping around.
-  var lastPress = null; // {t, beats}
+  // Follow my speed: measure the player's pace over their last several notes
+  // (beats played ÷ time taken), not note by note. Typists press keys at an
+  // even rate while songs mix short and long notes, so one gap at a time
+  // misreads the pace. If the music is running behind the player's fingers,
+  // speed up a little extra until it catches up.
+  var recentPresses = []; // [{t, b}]
+  var lastPress = null;   // kept so clearSongQueue can reset it
   function followSpeed(now, beats){
     var box = document.getElementById("followMode");
-    if(lastPress && box && box.checked){
-      var gap = now - lastPress.t;
-      var perBeat = gap / lastPress.beats;
-      var cur = beatMs();
-      // Ignore pauses and accidental double-taps; they aren't the player's pace.
-      if(perBeat > cur * 0.4 && perBeat < cur * 2.5){
-        var next = cur * 0.85 + perBeat * 0.15;
-        setBpm(60000 / next);
-      }
-    }
-    lastPress = { t: now, beats: beats };
+    if(!box || !box.checked){ recentPresses = []; return; }
+    if(recentPresses.length && now - recentPresses[recentPresses.length - 1].t > 2500) recentPresses = []; // a pause: start fresh
+    recentPresses.push({ t: now, b: beats });
+    if(recentPresses.length > 8) recentPresses.shift();
+    if(recentPresses.length < 3) return;
+    var span = now - recentPresses[0].t, beatsDone = 0;
+    for(var i = 0; i < recentPresses.length - 1; i++) beatsDone += recentPresses[i].b;
+    if(span <= 0 || beatsDone <= 0) return;
+    var target = span / beatsDone;                      // ms per beat at the player's pace
+    var behind = ctx ? (songNextFree - ctx.currentTime) * 1000 : 0; // music still waiting to play
+    if(behind > target) target *= Math.max(0.6, 1 - (behind - target) / (6 * target));
+    var cur = beatMs();
+    setBpm(60000 / (cur + (target - cur) * 0.35));
   }
   function clearSongQueue(){
     silenceSongVoices();
