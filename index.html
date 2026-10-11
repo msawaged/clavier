@@ -734,6 +734,14 @@
     background:currentColor; animation:caret 1s steps(2) infinite; opacity:1;
   }
   @keyframes caret{ 50%{ opacity:.25; } }
+  /* chord names above the notes, like a lead sheet */
+  .upcoming-row.with-chords{ row-gap:22px !important; padding-top:18px !important; }
+  .key-chip .chord-tag{
+    position:absolute; top:-17px; left:0; white-space:nowrap; pointer-events:none;
+    font-family:var(--font-display); font-weight:700; font-size:12px; line-height:1;
+    color:var(--brass); text-decoration:none; opacity:1;
+  }
+  .key-chip.played .chord-tag{ opacity:.45; }
   /* click any note on the page to start from there */
   .key-chip{ cursor:pointer; }
   .key-chip:hover:not(.now){ opacity:1 !important; box-shadow:0 0 0 2px var(--brass-dim); }
@@ -824,6 +832,11 @@
     <input type="checkbox" id="rainbow" checked>
     <span class="track"></span>
     <span>Rainbow notes</span>
+  </label>
+  <label class="easy-switch" title="Left hand: soft chords play underneath the melody automatically, like a pianist's left hand">
+    <input type="checkbox" id="leftHand" checked>
+    <span class="track"></span>
+    <span>Left hand</span>
   </label>
   <label class="easy-switch" title="Kiano listens to how fast you type and keeps the song's tempo matched to you">
     <input type="checkbox" id="followMode" checked>
@@ -1059,10 +1072,19 @@
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     masterGain = ctx.createGain();
     masterGain.gain.value = parseFloat(document.getElementById("volume").value);
-    masterGain.connect(ctx.destination);
+    // Limiter: catches loud peaks (big chords, full volume) before they
+    // distort, the way a studio limiter does, then a gentle safety clip.
+    var limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -3; limiter.knee.value = 4; limiter.ratio.value = 20;
+    limiter.attack.value = 0.002; limiter.release.value = 0.2;
+    var safety = ctx.createWaveShaper(), curve = new Float32Array(2048);
+    for(var ci = 0; ci < curve.length; ci++){ var x = ci / (curve.length - 1) * 2 - 1; var ax = Math.abs(x); curve[ci] = (ax < 0.8 ? ax : 0.8 + 0.2 * Math.tanh((ax - 0.8) / 0.2)) * (x < 0 ? -1 : 1); } // untouched below 0.8, rounded off above
+    safety.curve = curve;
+    var headroom = ctx.createGain(); headroom.gain.value = 0.6;   // room for chords on top of the melody
+    masterGain.connect(headroom); headroom.connect(limiter); limiter.connect(safety); safety.connect(ctx.destination);
     if(ctx.createMediaStreamDestination){
       recDest = ctx.createMediaStreamDestination();
-      masterGain.connect(recDest);
+      safety.connect(recDest);
     }
   }
 
@@ -1862,13 +1884,22 @@
   function chips0(page){ return page.children.length > 0; }
   function updatePage(seq, done){
     var page = document.getElementById("upcomingRow");
-    var sig = sheetState.song + "|" + seq.length + "|" + (IS_TOUCH ? "t" : "k");
+    var showChords = leftHandOn();
+    var sig = sheetState.song + "|" + seq.length + "|" + (IS_TOUCH ? "t" : "k") + "|" + (showChords ? "c" : "");
     if(pageFor !== sig || page.children.length !== seq.length){
       page.innerHTML = "";
+      page.classList.toggle("with-chords", showChords);
+      var plan = showChords ? chordPlan(sheetState.song) : null;
       seq.forEach(function(note, i){
         var chip = makeChip(note, false);
         chip.dataset.i = i;
         chip.title = "Click to start from here — " + chip.title;
+        if(plan && plan.trigger[i]){
+          var tag = document.createElement("span");
+          tag.className = "chord-tag";
+          tag.textContent = plan.active[i].name;
+          chip.appendChild(tag);
+        }
         // A long note usually ends a musical phrase: leave a "word space" after it.
         if(note.b >= 1.5 || i === seq.length - 1) chip.classList.add("phrase-end");
         page.appendChild(chip);
@@ -2084,6 +2115,7 @@
       var at = Math.max(t, songNextFree);
       songNextFree = at + need / 1000;
       playSongNote(key, at, need + LEGATO_MS);
+      maybePlayChord(sheetState.cursor, at, beatMs());
       if(!isEasy() && note.b >= 1) sheetState.timed++;
       advanceNote();
     } else {
@@ -2145,6 +2177,140 @@
       if(lastSongVoice === sv) lastSongVoice = null;
     }, (holdUntil + rel - ctx.currentTime) * 1000 + 100));
   }
+  // ---- Left hand: automatic chords under the melody ------------------------
+  // Kiano works out the song's key, then for every two beats picks the
+  // chord (I, IV, V, vi, ...) that fits the melody notes best. This needs no
+  // hand-written chord charts, so it also works on songs loaded from MIDI.
+  function leftHandOn(){ var b = document.getElementById("leftHand"); return !!(b && b.checked); }
+  var CHORD_NAMES = ["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"];
+  var MAJOR_PROFILE = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88];
+  var MINOR_PROFILE = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+  var MAJOR_CHORDS = [ // [degree, chord tones from the key's tonic, quality, how common]
+    [0,[0,4,7],"",.5], [5,[5,9,0],"",.35], [7,[7,11,2],"",.4], [7,[7,11,2,5],"7",.2],
+    [9,[9,0,4],"m",.15], [2,[2,5,9],"m",.1], [4,[4,7,11],"m",0] ];
+  var MINOR_CHORDS = [
+    [0,[0,3,7],"m",.5], [5,[5,8,0],"m",.35], [7,[7,11,2],"",.4], [7,[7,11,2,5],"7",.2],
+    [8,[8,0,3],"",.2], [3,[3,7,10],"",.15], [10,[10,2,5],"",.15] ];
+  function notePc(note){ return ((noteToMidi(BASE_MAP[note.k]) % 12) + 12) % 12; }
+  function findKey(seq){
+    var hist = [0,0,0,0,0,0,0,0,0,0,0,0];
+    seq.forEach(function(n){ hist[notePc(n)] += n.b; });
+    var lastPc = notePc(seq[seq.length - 1]);
+    function corr(profile, t){
+      var xs = [], ys = [], mx = 0, my = 0, i;
+      for(i = 0; i < 12; i++){ xs.push(hist[(i + t) % 12]); ys.push(profile[i]); mx += xs[i]; my += ys[i]; }
+      mx /= 12; my /= 12;
+      var sxy = 0, sxx = 0, syy = 0;
+      for(i = 0; i < 12; i++){ sxy += (xs[i]-mx)*(ys[i]-my); sxx += (xs[i]-mx)*(xs[i]-mx); syy += (ys[i]-my)*(ys[i]-my); }
+      return sxy / Math.sqrt((sxx * syy) || 1);
+    }
+    var best = { tonic:0, minor:false, score:-9 };
+    for(var t = 0; t < 12; t++){
+      [false, true].forEach(function(minor){
+        var sc = corr(minor ? MINOR_PROFILE : MAJOR_PROFILE, t) + (t === lastPc ? 0.35 : 0) - (minor ? 0.03 : 0);
+        if(sc > best.score) best = { tonic:t, minor:minor, score:sc };
+      });
+    }
+    return best;
+  }
+  function voiceChord(tones){
+    var root = tones[0];
+    var midis = [40 + ((root - 4 + 12) % 12)];                       // bass note, E2–D#3
+    var upper = tones.map(function(pc){ return 52 + ((pc - 4 + 12) % 12); }); // chord, E3–D#4
+    upper.sort(function(a, b){ return a - b; });
+    return { bass: midis[0], upper: upper };
+  }
+  var chordPlans = {};
+  function chordPlan(songId){
+    var seq = SONGS[songId];
+    var cacheKey = songId + "|" + seq.length;
+    if(chordPlans[cacheKey]) return chordPlans[cacheKey];
+    var key = findKey(seq), table = key.minor ? MINOR_CHORDS : MAJOR_CHORDS;
+    var W = 2, starts = [], pos = 0;
+    seq.forEach(function(n){ starts.push(pos); pos += n.b; });
+    var total = pos, nW = Math.max(1, Math.ceil(total / W - 1e-9));
+    var choice = [], prev = -1;
+    for(var w = 0; w < nW; w++){
+      var w0 = w * W, w1 = w0 + W, bestI = 0, bestS = -1e9;
+      for(var c = 0; c < table.length; c++){
+        var tones = table[c][1].map(function(x){ return (x + key.tonic) % 12; });
+        var sc = table[c][3] + (c === prev ? 0.25 : 0);
+        if(w === nW - 1 && table[c][0] === 0 && table[c][2] !== "7") sc += 2;   // end on home
+        if(w === 0 && table[c][0] === 0 && table[c][2] !== "7") sc += 0.6;      // start at home
+        for(var i = 0; i < seq.length; i++){
+          var a = Math.max(starts[i], w0), b = Math.min(starts[i] + seq[i].b, w1);
+          if(b <= a) continue;
+          var wt = (b - a) * (Math.abs(starts[i] - w0) < 1e-6 ? 1.5 : 1);
+          sc += tones.indexOf(notePc(seq[i])) >= 0 ? wt : -0.6 * wt;
+        }
+        if(sc > bestS){ bestS = sc; bestI = c; }
+      }
+      choice.push(bestI); prev = bestI;
+    }
+    var trigger = [], active = [], lenBeats = [], cur = -1, curChord = null;
+    for(var j = 0; j < seq.length; j++){
+      var wi = j === seq.length - 1 ? nW - 1 : Math.min(nW - 1, Math.floor(starts[j] / W + 1e-9)); // last note: the home chord
+      if(choice[wi] !== cur){
+        cur = choice[wi];
+        var e = table[cur], tonesAbs = e[1].map(function(x){ return (x + key.tonic) % 12; });
+        curChord = { name: CHORD_NAMES[tonesAbs[0]] + e[2], voicing: voiceChord(tonesAbs) };
+        trigger.push(true);
+      } else trigger.push(false);
+      active.push(curChord);
+    }
+    for(var k = 0; k < seq.length; k++){
+      var nx = k + 1; while(nx < seq.length && !trigger[nx]) nx++;
+      lenBeats.push((nx < seq.length ? starts[nx] : total) - starts[k]);
+    }
+    var plan = { key: CHORD_NAMES[key.tonic] + (key.minor ? " minor" : " major"), trigger: trigger, active: active, lenBeats: lenBeats };
+    chordPlans[cacheKey] = plan;
+    return plan;
+  }
+  // One soft tone on the audio clock (no key lights). Used for the chords.
+  function playTone(midi, at, lenMs, level){
+    var preset = SOUNDS[document.getElementById("sound").value] || SOUNDS.piano;
+    var rel = preset.release || 0.18;
+    var gate = ctx.createGain(); gate.connect(masterGain);
+    var lvl = ctx.createGain(); lvl.gain.value = level; lvl.connect(gate);
+    var gain = ctx.createGain(); gain.connect(lvl);
+    var oscs = preset.build(midiToFreq(midi), at, gain);   // chords keep their register (no 808 drop)
+    var end = at + lenMs / 1000, holdUntil = end + Math.min(lenMs / 1000, 1.5);
+    gate.gain.setValueAtTime(1, at);
+    gate.gain.setValueAtTime(1, holdUntil);
+    gate.gain.exponentialRampToValueAtTime(0.0001, holdUntil + rel);
+    oscs.forEach(function(o){ o.stop(holdUntil + rel + 0.02); });
+    var sv = { gate: gate, midi: midi, lit: false, timers: [], end: end, holdUntil: holdUntil, rel: rel };
+    songVoices.push(sv);
+    sv.timers.push(setTimeout(function(){
+      var k = songVoices.indexOf(sv); if(k >= 0) songVoices.splice(k, 1);
+    }, (holdUntil + rel - ctx.currentTime) * 1000 + 100));
+    return sv;
+  }
+  var chordVoices = [];   // the left-hand chord sounding now
+  // Call for melody note i of the current song, starting at audio time `at`.
+  function maybePlayChord(i, at, beatLenMs){
+    if(!leftHandOn() || !sheetState.song) return;
+    var plan = chordPlan(sheetState.song);
+    var stillRinging = chordVoices.length && chordVoices[0].holdUntil > at;
+    if(!plan.trigger[i] && stillRinging) return;
+    var ch = plan.active[i];
+    if(!ch) return;
+    var cut = at + LEGATO_MS / 1000;
+    chordVoices.forEach(function(v){            // the old chord hands over to the new one
+      if(v.holdUntil <= cut) return;
+      try{
+        var g = v.gate.gain;
+        g.cancelScheduledValues(cut);
+        g.setValueAtTime(1, cut);
+        g.exponentialRampToValueAtTime(0.0001, cut + v.rel);
+      }catch(e){}
+      v.holdUntil = cut;
+    });
+    var len = plan.lenBeats[i] * beatLenMs + LEGATO_MS, sh = octaveShift * 12;
+    chordVoices = [playTone(ch.voicing.bass + sh, at, len, 0.42)];
+    ch.voicing.upper.forEach(function(m){ chordVoices.push(playTone(m + sh, at, len, 0.2)); });
+  }
+
   function silenceSongVoices(){
     var now = ctx ? ctx.currentTime : 0;
     songVoices.forEach(function(sv){
@@ -2158,6 +2324,7 @@
       }catch(e){}
     });
     songVoices = [];
+    chordVoices = [];
     lastSongVoice = null;
     recentPresses = [];
   }
@@ -2296,6 +2463,7 @@
       if(!sheetState.demoPlaying || i >= seq.length){ stopDemo(); return; }
       var note = seq[i];
       noteOn(note.k);
+      maybePlayChord(i, ctx.currentTime, beatMs);
       sheetState.cursor = i;
       renderSheet();
       setHint("Demo — watch how long each key stays held", false);
@@ -2683,6 +2851,17 @@
   easyBox.addEventListener("change", function(){
     store("kiano.easy", easyBox.checked ? "1" : "0");
     cancelHold(); applyToggles(); if(sheetState.song) renderSheet();
+  });
+  var leftBox = document.getElementById("leftHand");
+  if(store("kiano.lefthand") === "0") leftBox.checked = false;
+  leftBox.addEventListener("change", function(){
+    store("kiano.lefthand", leftBox.checked ? "1" : "0");
+    if(!leftBox.checked){
+      var now = ctx ? ctx.currentTime : 0;
+      chordVoices.forEach(function(v){ try{ v.gate.gain.cancelScheduledValues(now); v.gate.gain.setValueAtTime(Math.max(v.gate.gain.value, 0.0001), now); v.gate.gain.exponentialRampToValueAtTime(0.0001, now + 0.15); }catch(e){} });
+      chordVoices = [];
+    }
+    if(sheetState.song) renderSheet();
   });
   var followBox = document.getElementById("followMode");
   if(store("kiano.follow") === "0") followBox.checked = false;
